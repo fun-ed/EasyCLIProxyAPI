@@ -9,7 +9,7 @@ GITCODE_GUI_REPOSITORY="${GITCODE_GUI_REPOSITORY:-lzt404/EasyCLIProxyAPI}"
 GITCODE_CORE_REPOSITORY="${GITCODE_CORE_REPOSITORY:-lzt404/CLIProxyAPI}"
 APP_BIN="$ROOT_DIR/src-tauri/target/release/cpa-gui"
 BIN_DIR="$ROOT_DIR/bin-work"
-BIN_OUT="$BIN_DIR/EasyCLIProxyAPI"
+BIN_OUT="$BIN_DIR/EasyCLIProxyAPI-fork"
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "bun is not installed or not in PATH."

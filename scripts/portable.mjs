@@ -76,7 +76,7 @@ if (verification && verification.actual !== verification.expected) {
 }
 
 await mkdir(output, { recursive: true });
-const outputBinary = join(output, targetOS === 'windows' ? 'EasyCLIProxyAPI.exe' : 'EasyCLIProxyAPI');
+const outputBinary = join(output, targetOS === 'windows' ? 'EasyCLIProxyAPI-fork.exe' : 'EasyCLIProxyAPI-fork');
 const legacyOutputBinary = join(output, targetOS === 'windows' ? 'cpa-gui.exe' : 'cpa-gui');
 await rm(legacyOutputBinary, { force: true });
 await copyFile(binary, outputBinary);
