@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $RootDir = $PSScriptRoot
 $AppBin = Join-Path $RootDir 'src-tauri\target\release\cpa-gui.exe'
 $BinDir = Join-Path $RootDir 'bin-work'
-$BinOut = Join-Path $BinDir 'EasyCLIProxyAPI.exe'
+$BinOut = Join-Path $BinDir 'EasyCLIProxyAPI-fork.exe'
 $PortableScript = Join-Path $RootDir 'scripts\portable.mjs'
 
 Set-Location -LiteralPath $RootDir

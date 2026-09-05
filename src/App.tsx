@@ -371,7 +371,7 @@ function AppContent() {
             <div className="sidebar-brand" title={t('app.desktopConsole')}>
               <img src={appLogo} alt="" className="brand-mark brand-logo" />
               <div className="sidebar-brand-text">
-                <strong>EasyCLIProxyAPI</strong>
+                <strong>EasyCLIProxyAPI-fork</strong>
                 <span>{t('app.desktopConsole')}</span>
               </div>
             </div>
