@@ -3,6 +3,7 @@ import { easyModeJa } from './easyMode';
 import { homeJa } from './home';
 import { authFileListJa } from './authFileList';
 import { themeDiyJa } from './themeDiy';
+import { requestArchiveJa } from './locales/requestArchive';
 
 export const jaOverrides = {
   ...themeDiyJa,
@@ -254,6 +255,7 @@ export const jaOverrides = {
   'authFiles.requests.unavailable': 'コアから最近のリクエスト統計が提供されていません',
   'authFiles.requests.interval': '時間帯 {index}',
   'authFiles.requests.totalsHint': 'コアの稼働中の累計回数です。再起動でリセットされます。一覧の更新で統計を更新できます。',
+  ...requestArchiveJa,
   'apiAccess.provider.codex': 'Codex API',
   'apiAccess.provider.deepseek': 'DeepSeek',
   'apiAccess.provider.claude': 'Claude',

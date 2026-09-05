@@ -12,6 +12,7 @@ export type UsageEventPage = {
 export type UsageRecord = {
   id: string;
   row_id: string;
+  request_id: string;
   timestamp: string;
   latency_ms: number;
   ttft_ms: number | null;

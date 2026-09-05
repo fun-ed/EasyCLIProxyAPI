@@ -17,6 +17,7 @@ import { Dialog } from '../components/Dialog';
 import { usageProviderDetails } from '../services/usageProvider';
 import { usageModelDetails } from '../services/usageModel';
 import { Select } from '../components/Select';
+import { RequestArchiveDetailDialog } from './RequestArchivePanel';
 
 const compactNumber = (value: number) => formatUsageNumber(value, getCurrentLocale());
 const compactDuration = (value: number) => formatDuration(value, getCurrentLocale());
@@ -494,6 +495,7 @@ export function EventsView({
       feedback.showNotice({ key: 'common.copyFailed' }, 'error');
     }
   };
+  const [archiveRequestId, setArchiveRequestId] = useState('');
 
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
   const resizeCleanupRef = useRef<(() => void) | null>(null);
@@ -752,7 +754,11 @@ export function EventsView({
                 const detail = usageResultDetail(record);
                 return (
                   <Fragment key={record.row_id}>
-                    <tr>
+                    <tr
+                      className={record.request_id ? 'usage-event-row-openable' : undefined}
+                      title={record.request_id ? t('usage.archive.viewDetail') : undefined}
+                      onClick={() => record.request_id && setArchiveRequestId(record.request_id)}
+                    >
                       {visibleColumns.map((column) => (
                         <UsageEventCell
                           key={column.key}
@@ -828,6 +834,13 @@ export function EventsView({
           </div>
         </div>
       </div>
+
+      {archiveRequestId ? (
+        <RequestArchiveDetailDialog
+          requestId={archiveRequestId}
+          onClose={() => setArchiveRequestId('')}
+        />
+      ) : null}
 
       {columnSettingsOpen ? (
         <Dialog

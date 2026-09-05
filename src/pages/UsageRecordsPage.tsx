@@ -48,6 +48,7 @@ import {
 import { getCurrentLocale, useI18n } from '../i18n';
 import { usePrivacyMask } from '../privacy';
 import { MessageNotice, FloatingNotice, useAppNotice } from '../appNotice';
+import { RequestArchiveSettingsCard } from './RequestArchivePanel';
 import { calculateTokenComposition } from '../services/usageMetrics';
 import { formatDuration, formatUsageNumber } from '../services/usageNumber';
 import { Tabs } from '../components/Tabs';
@@ -549,7 +550,12 @@ export function UsageRecordsPage() {
       {activeTab === 'pricing' && pricing ? (
         <PricingView pricing={pricing} query={buildQueries().query} onChanged={() => loadData(true)} />
       ) : null}
-      {activeTab === 'data-management' ? <UsageDataManagementView /> : null}
+      {activeTab === 'data-management' ? (
+        <>
+          <UsageDataManagementView />
+          <RequestArchiveSettingsCard />
+        </>
+      ) : null}
       </div>
     </section>
   );
