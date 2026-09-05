@@ -22,4 +22,5 @@ mod instance_lock;
 mod model_aliases;
 mod platform;
 mod provider_health;
+mod request_archive;
 mod support;

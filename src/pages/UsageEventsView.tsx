@@ -7,6 +7,7 @@ import { formatDuration, formatUsageNumber } from '../services/usageNumber';
 import { useDialogFocusTrap } from '../components/useDialogFocusTrap';
 import { usageProviderDetails } from '../services/usageProvider';
 import { usageModelDetails } from '../services/usageModel';
+import { RequestArchiveDetailDialog } from './RequestArchivePanel';
 
 const compactNumber = (value: number) => formatUsageNumber(value, getCurrentLocale());
 const compactDuration = (value: number) => formatDuration(value, getCurrentLocale());
@@ -21,6 +22,7 @@ const formatEventDate = (value: string) => {
 export type UsageRecord = {
   id: string;
   row_id: string;
+  request_id: string;
   timestamp: string;
   latency_ms: number;
   ttft_ms: number | null;
@@ -432,6 +434,7 @@ export function EventsView({
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const [draftVisibleColumnKeys, setDraftVisibleColumnKeys] = useState<EventColumnKey[]>(visibleColumnKeys);
   const [resizingCol, setResizingCol] = useState<EventColumnKey | null>(null);
+  const [archiveRequestId, setArchiveRequestId] = useState('');
 
   const columnDialogRef = useDialogFocusTrap<HTMLElement>({
     active: columnSettingsOpen,
@@ -652,7 +655,12 @@ export function EventsView({
             </thead>
             <tbody>
               {events.items.map((record) => (
-                <tr key={record.row_id}>
+                <tr
+                  key={record.row_id}
+                  className={record.request_id ? 'usage-event-row-openable' : undefined}
+                  title={record.request_id ? t('usage.archive.viewDetail') : undefined}
+                  onClick={() => record.request_id && setArchiveRequestId(record.request_id)}
+                >
                   {visibleColumns.map((column) => (
                     <UsageEventCell
                       key={column.key}
@@ -711,6 +719,13 @@ export function EventsView({
           </div>
         </div>
       </div>
+
+      {archiveRequestId ? (
+        <RequestArchiveDetailDialog
+          requestId={archiveRequestId}
+          onClose={() => setArchiveRequestId('')}
+        />
+      ) : null}
 
       {columnSettingsOpen ? (
         <div

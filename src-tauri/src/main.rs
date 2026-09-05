@@ -23,6 +23,7 @@ mod oauth_browser;
 mod plugins;
 mod progress;
 mod provider_health;
+mod request_archive;
 #[cfg(any(
     target_os = "linux",
     target_os = "macos",
@@ -2415,6 +2416,7 @@ fn main() {
         .manage(CoreProcessState::new(gui_config.start_core_on_launch))
         .manage(DeepSeekHarnessProcessState::default())
         .manage(usage::UsageCollectorState::default())
+        .manage(request_archive::RequestArchiveState::default())
         .manage(GuiConfigState::new(gui_config))
         .manage(MainWindowSizeState::new(initial_window_size))
         .manage(AgentConfigStatusCache::default());
@@ -2526,6 +2528,11 @@ fn main() {
                     eprintln!("Failed to initialize usage records directory: {error}");
                 }
                 usage::start_usage_collector(usage_app);
+            });
+
+            let archive_app = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                request_archive::start_request_archive_ingester(archive_app);
             });
 
             let agent_status_app = app.handle().clone();
@@ -2695,6 +2702,13 @@ fn main() {
             management_api::upload_auth_file,
             management_api::open_auth_files_directory,
             management_api::open_core_logs_directory,
+            request_archive::get_request_archive_status,
+            request_archive::save_request_archive_settings,
+            request_archive::query_request_archive_records,
+            request_archive::get_request_archive_record,
+            request_archive::get_request_archive_record_by_request_id,
+            request_archive::get_request_archive_models,
+            request_archive::clear_request_archive,
             set_core_plugins_enabled,
             set_core_routing_strategy,
             set_core_proxy_url,

@@ -2,6 +2,7 @@ import type { MessageKey } from './zh-CN';
 import { easyModeEn } from '../easyMode';
 import { homeEn } from '../home';
 import { authFileListEn } from '../authFileList';
+import { requestArchiveEn } from './requestArchive';
 
 export const en: Record<MessageKey, string> = {
   'app.nav.plugins': 'Plugins',
@@ -158,6 +159,7 @@ export const en: Record<MessageKey, string> = {
   'authFiles.requests.unavailable': 'The core did not provide recent request statistics',
   'authFiles.requests.interval': 'Interval {index}',
   'authFiles.requests.totalsHint': 'Totals since the core started; reset on restart. Refresh the list to update statistics.',
+  ...requestArchiveEn,
   'apiAccess.provider.codex': 'Codex API',
   'apiAccess.provider.deepseek': 'DeepSeek',
   'apiAccess.provider.claude': 'Claude',

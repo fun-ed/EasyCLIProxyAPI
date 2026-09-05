@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getCurrentLocale, useI18n } from '../i18n';
 import { MessageNotice, FloatingNotice, useAppNotice } from '../appNotice';
+import { RequestArchiveSettingsCard } from './RequestArchivePanel';
 import { calculateTokenComposition } from '../services/usageMetrics';
 import { formatDuration, formatUsageNumber } from '../services/usageNumber';
 import { handleHorizontalTabKey } from '../components/tabKeyboardNavigation';
@@ -723,7 +724,12 @@ export function UsageRecordsPage() {
       {hasCurrentSnapshot && activeTab === 'pricing' && pricing ? (
         <PricingView pricing={pricing} query={buildQueries().query} onChanged={() => loadData(true)} />
       ) : null}
-      {activeTab === 'data-management' ? <UsageDataManagementView /> : null}
+      {activeTab === 'data-management' ? (
+        <>
+          <UsageDataManagementView />
+          <RequestArchiveSettingsCard />
+        </>
+      ) : null}
       </div>
     </section>
   );

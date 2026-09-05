@@ -141,6 +141,10 @@ Antigravity CLI connects through CPA's Gemini-compatible API. Launch the CLI fro
 - Create client-visible model aliases and map them to provider models and reasoning levels.
 - Upload, download, inspect, and manage authentication files.
 - Review provider quotas and account availability.
+- Archive full request transcripts (system prompt, messages, tool calls, usage, HTTP status, raw
+  payloads) from the core request log into a dedicated SQLite database, then browse them from
+  **Usage → Request Details**. The archive is opt-in, keeps the original log files untouched, and
+  supports retention by age and database size.
 - Keep the application available from the macOS menu bar or Windows system tray.
 
 ## Quick Start
