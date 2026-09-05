@@ -23,6 +23,7 @@ import {
 import { getCurrentLocale, useI18n } from '../i18n';
 import { MessageNotice, FloatingNotice, useAppNotice } from '../appNotice';
 import type { MessageKey } from '../i18n/resources';
+import { RequestArchiveDetailDialog, RequestArchiveSettingsCard } from './RequestArchivePanel';
 import { formatCacheReadRate, formatGenerationSpeed } from '../services/usageMetrics';
 import { formatUsageNumber } from '../services/usageNumber';
 import { handleHorizontalTabKey } from '../components/tabKeyboardNavigation';
@@ -100,6 +101,7 @@ type UsageAnalysis = {
 type UsageRecord = {
   id: string;
   row_id: string;
+  request_id: string;
   timestamp: string;
   latency_ms: number;
   ttft_ms: number | null;
@@ -824,7 +826,12 @@ export function UsageRecordsPage() {
       {hasCurrentSnapshot && activeTab === 'pricing' && pricing ? (
         <PricingView pricing={pricing} query={buildQueries().query} onChanged={() => loadData(true)} />
       ) : null}
-      {activeTab === 'data-management' ? <UsageDataManagementView /> : null}
+      {activeTab === 'data-management' ? (
+        <>
+          <UsageDataManagementView />
+          <RequestArchiveSettingsCard />
+        </>
+      ) : null}
       </div>
     </section>
   );
@@ -1990,6 +1997,7 @@ function EventsView({
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const [draftVisibleColumnKeys, setDraftVisibleColumnKeys] = useState<EventColumnKey[]>(visibleColumnKeys);
   const [resizingCol, setResizingCol] = useState<EventColumnKey | null>(null);
+  const [archiveRequestId, setArchiveRequestId] = useState('');
 
   const columnDialogRef = useDialogFocusTrap<HTMLElement>({
     active: columnSettingsOpen,
@@ -2260,7 +2268,12 @@ function EventsView({
             </thead>
             <tbody>
               {events.items.map((record) => (
-                <tr key={record.row_id}>
+                <tr
+                  key={record.row_id}
+                  className={record.request_id ? 'usage-event-row-openable' : undefined}
+                  title={record.request_id ? t('usage.archive.viewDetail') : undefined}
+                  onClick={() => record.request_id && setArchiveRequestId(record.request_id)}
+                >
                   {visibleColumns.map((column) => (
                     <UsageEventCell
                       key={column.key}
@@ -2277,6 +2290,13 @@ function EventsView({
       ) : (
         <UsageEmpty />
       )}
+
+      {archiveRequestId ? (
+        <RequestArchiveDetailDialog
+          requestId={archiveRequestId}
+          onClose={() => setArchiveRequestId('')}
+        />
+      ) : null}
 
       {columnSettingsOpen ? (
         <div

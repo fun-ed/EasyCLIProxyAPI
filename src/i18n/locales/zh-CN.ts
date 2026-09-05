@@ -1,4 +1,5 @@
 import { easyModeZhCN } from '../easyMode';
+import { requestArchiveZhCN } from './requestArchive';
 
 export const zhCN = {
   ...easyModeZhCN,
@@ -92,6 +93,7 @@ export const zhCN = {
   'authFiles.requests.unavailable': '内核未提供近期请求统计',
   'authFiles.requests.interval': '时段 {index}',
   'authFiles.requests.totalsHint': '内核运行期间的累计次数，重启后重置；刷新列表可更新统计。',
+  ...requestArchiveZhCN,
   'apiAccess.provider.codex': 'Codex API',
   'apiAccess.provider.deepseek': 'DeepSeek',
   'apiAccess.provider.claude': 'Claude',
