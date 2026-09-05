@@ -243,6 +243,20 @@ git config --local user.name  "fun-ed"
 git config --local user.email "git-ed@runbox.no"
 ```
 
+`CLIProxyAPI/`（Go 核心）也要做同樣的本機忽略。核心**必須永遠保持乾淨的 upstream 狀態**（§4 不變式），所以 OpenWiki 產物不進版控：
+
+```bash
+cd CLIProxyAPI
+printf '\n# local agent artifacts (not for upstream)\n/openwiki/\n/AGENTS.md.bak.*\n/CLAUDE.md.bak.*\n' >> .git/info/exclude
+```
+
+若 OpenWiki 工具又往 `CLIProxyAPI/AGENTS.md` 或 `CLAUDE.md` 寫入區塊，**還原它們**（先備份再 `git checkout --`）。原因有二：
+
+1. 核心一旦有本機改動，之後 `git pull` 就會衝突。
+2. 該 repo 的 CI 有 `agents-md-guard.yml`，**任何碰到 `AGENTS.md` 的 PR 會被自動關閉**。
+
+相同內容在 workspace 根目錄的 `AGENTS.md` / `CLAUDE.md` 已有一份，`openwiki/` 也可由工具重新產生，還原不會損失資訊。
+
 ### 之後建立自己的 GitHub fork
 
 ```bash
