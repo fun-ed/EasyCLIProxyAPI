@@ -5,6 +5,8 @@ export type RequestArchiveSettings = {
   retentionDays: number;
   maxTotalMb: number;
   maxBodyKb: number;
+  /** Archive-enforced cap for the core log directory; 0 defers to the core. */
+  logsMaxMb: number;
 };
 
 export type RequestArchiveStatus = RequestArchiveSettings & {
