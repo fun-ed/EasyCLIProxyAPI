@@ -16,13 +16,21 @@
 cd <workspace 根目錄>          # 例如 ~/temp/cliproxy-api
 
 ./sync-and-build.sh --check    # 1. 先看 upstream 有沒有更新（只 fetch，不改任何東西）
-./sync-and-build.sh            # 2. 同步 + 建置 + 驗證 + 打包
-./EasyCLIProxyAPI/run.sh       # 3. 啟動
+./sync-and-build.sh --app      # 2. 同步 + 建置 + 驗證 + 打包 + 產生 .app
+open EasyCLIProxyAPI/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 ```
 
 第 1 步可省略，直接跑第 2 步也會自己 fetch。`--check` 的離開碼可供排程判斷：`0` = 已是最新，`10` = 有更新待套用。
 
-腳本會自己 fetch、rebase、建置、驗證、打包。細節見 §6，衝突處理見 §6.2。
+> **一定要加 `--app`。** 不加只會產出 `bin-work/` 的可攜版，那個版本**自帶一份空白 profile**（沒有你的憑證、沒有用量記錄、歸檔永遠 0 筆）。原因見 §9.1。
+
+只改了程式碼、想最快看到結果：
+
+```bash
+./sync-and-build.sh --app-only    # 跳過 git 與核心/面板，只驗證 + 出 .app，約 1 分鐘
+```
+
+腳本會自己 fetch、rebase、建置、驗證、打包。細節見 §6，衝突處理見 §6.2，手動指令見 §6.4。
 
 ### 成功長這樣
 
@@ -290,7 +298,8 @@ cd <workspace 根目錄>
 | 5 | 面板 `bun run build` → 安裝到 `<core install dir>/static/management.html` | 內容相同則跳過複製 |
 | 6 | 把核心 config 的 `disable-auto-update-panel` 釘成 `true` | 否則核心每 3 小時會用 GitHub 版覆蓋你的本機 build |
 | 7 | fork `bun install` / `bun run check` / `bun test` / `cargo test` | i18n 既有失敗只警告；cargo 失敗會重試一次以排除 §8 的 flake |
-| 8 | fork `./build.sh` → `bin-work/EasyCLIProxyAPI-fork` | — |
+| 8 | fork `./build.sh` → `bin-work/EasyCLIProxyAPI-fork`（可攜版） | — |
+| 9 | 加 `--app` 時額外 `bun tauri build` → `.app` bundle | 這才是共用真實 profile 的版本 |
 
 所有 repo 在動之前都會檢查工作區乾淨，有未提交改動就中止。
 
@@ -298,6 +307,8 @@ cd <workspace 根目錄>
 
 ```bash
 ./sync-and-build.sh --check        # 只回報 upstream 有無更新（exit 0=最新, 10=有更新）
+./sync-and-build.sh --app          # 同步 + 全部建置 + 額外產生 .app bundle
+./sync-and-build.sh --app-only     # 只驗證 + 出 .app（跳過 git、核心、面板），約 1 分鐘
 ./sync-and-build.sh --no-sync      # 不動 git，只重建
 ./sync-and-build.sh --no-package   # 跑完測試但跳過慢的 release build
 ./sync-and-build.sh --skip-core --skip-panel   # 只處理 fork
@@ -332,8 +343,50 @@ bun run check
 bun test
 bun run build
 cd src-tauri && cargo test && cd ..
-./build.sh && ./run.sh
 ```
+
+### 6.4 手動建置 app（兩種產物，用途不同）
+
+| 產物 | 指令 | 資料目錄 | 用途 |
+| --- | --- | --- | --- |
+| **`.app` bundle** | `bun tauri build` | **共用真實 profile** | **平常用這個**，能看到你的憑證與用量 |
+| 可攜版 binary | `./build.sh` | 自帶空白 profile | 分發、或要乾淨環境測試 |
+
+**`.app`（推薦）**
+
+```bash
+cd EasyCLIProxyAPI
+bun install
+bun tauri build
+# 產物：
+#   src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
+#   src-tauri/target/release/bundle/dmg/EasyCLIProxyAPI-fork_<版本>_aarch64.dmg
+
+open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
+```
+
+**可攜版**
+
+```bash
+cd EasyCLIProxyAPI
+./build.sh          # 內含 bun install + bun tauri build --no-bundle + portable 打包
+./run.sh            # 等同執行 bin-work/EasyCLIProxyAPI-fork
+```
+
+**啟動前務必先關掉另一個版本**，兩者會搶 port 8317：
+
+```bash
+pkill -x cpa-gui; sleep 3
+pgrep -fl "cpa-gui|cli-proxy-api" || echo "已全部關閉"
+```
+
+帶著 kill switch 啟動（歸檔壞掉時）：
+
+```bash
+CPA_FORK_ARCHIVE=0 open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
+```
+
+耗時參考：`.app` 建置約 1 分鐘（增量），首次或 `cargo clean` 後約 4 分鐘。
 
 ### Sync 後 checklist
 
@@ -452,13 +505,7 @@ git push -u origin feature/request-archive
 
 **這是 upstream 的設計（可攜版本來就該自我包含），不是 fork 的 bug。**
 
-實務影響：用 `./build.sh` 的可攜版測試時，會看到**沒有憑證、沒有用量記錄、歸檔 0 筆**，因為那是全新 profile。要用你真實的資料測，必須建 `.app`：
-
-```bash
-cd EasyCLIProxyAPI
-bun tauri build     # 產出 src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
-open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
-```
+實務影響：用 `./build.sh` 的可攜版測試時，會看到**沒有憑證、沒有用量記錄、歸檔 0 筆**，因為那是全新 profile。要用你真實的資料測，必須建 `.app`（指令見 §6.4，或直接 `./sync-and-build.sh --app-only`）。
 
 `.app` 版與正式版共用 `~/Library/Application Support/com.cpa.gui`（auth 檔、config、`usage.db` 都同一份），但**不可同時執行**，兩者會搶 port 8317。
 

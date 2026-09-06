@@ -196,15 +196,25 @@
 
 /* ------------------------------------------------------------------ dialog */
 
-.usage-archive-dialog {
+/*
+ * Compound selector on purpose. `.config-dialog` is a 460x340 grid with five
+ * fixed row heights, meant for small confirmations, and it is emitted after this
+ * file in the bundle. At equal specificity it would win on source order and
+ * crush the archive dialog, so every colliding property is overridden here at a
+ * higher specificity instead of relying on import order.
+ */
+.config-dialog.usage-archive-dialog {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  height: 88vh;
-  max-width: 1100px;
+  grid-template-rows: none;
+  height: min(92vh, 1100px);
+  max-height: 92vh;
+  max-width: none;
   /* The body scrolls, not the shell, so the header and tabs stay reachable. */
   overflow: hidden;
-  width: min(1100px, 94vw);
+  padding: 24px;
+  width: min(1400px, 96vw);
 }
 
 .usage-archive-dialog-header {
