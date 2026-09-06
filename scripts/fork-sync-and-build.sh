@@ -34,6 +34,7 @@ DO_PANEL=1
 DO_APP=1
 DO_VERIFY=1
 DO_PACKAGE=1
+DO_CHECK=0
 
 declare -a SUMMARY=()
 
@@ -42,6 +43,8 @@ usage() {
 Usage: ./sync-and-build.sh [options]
 
 Options:
+  --check         Only report whether upstream has new commits, then exit.
+                  Fetches but changes nothing. Exit 0 = up to date, 10 = updates.
   --no-sync       Skip all git fetch/rebase; build what is already checked out.
   --skip-core     Skip the Go core (sync + build).
   --skip-panel    Skip the management panel (sync + build + install).
@@ -59,6 +62,7 @@ USAGE
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --check) DO_CHECK=1 ;;
     --no-sync) DO_SYNC=0 ;;
     --skip-core) DO_CORE=0 ;;
     --skip-panel) DO_PANEL=0 ;;
@@ -276,8 +280,45 @@ package_app() {
   note "EasyCLIProxyAPI: packaged $out"
 }
 
+# Reports upstream drift without touching any working tree.
+check_updates() {
+  local pending=0
+  for entry in "$CORE_DIR:CLIProxyAPI" \
+               "$PANEL_DIR:Cli-Proxy-API-Management-Center" \
+               "$APP_DIR:EasyCLIProxyAPI"; do
+    local dir="${entry%%:*}" name="${entry##*:}"
+    if [ ! -d "$dir/.git" ]; then
+      warn "$name: not a git checkout, skipped"
+      continue
+    fi
+    git -C "$dir" fetch --quiet origin
+    local behind ahead
+    behind="$(git -C "$dir" rev-list --count HEAD..origin/main)"
+    ahead="$(git -C "$dir" rev-list --count origin/main..HEAD)"
+    if [ "$behind" = "0" ]; then
+      printf '    %-32s up to date (%s local commit(s))\n' "$name" "$ahead"
+    else
+      printf '    \033[1;33m%-32s %s new upstream commit(s)\033[0m\n' "$name" "$behind"
+      git -C "$dir" --no-pager log --oneline --max-count=5 "HEAD..origin/main" | sed 's/^/        /'
+      pending=1
+    fi
+  done
+  if [ "$pending" = "0" ]; then
+    printf '\n\033[1;32mEverything is up to date.\033[0m\n\n'
+    return 0
+  fi
+  printf '\nRun ./sync-and-build.sh to apply and rebuild.\n\n'
+  return 10
+}
+
 main() {
   require_tool git
+
+  if [ "$DO_CHECK" = 1 ]; then
+    step "Checking upstream"
+    check_updates
+    exit $?
+  fi
   if [ "$DO_CORE" = 1 ]; then require_tool go; fi
   if [ "$DO_PANEL" = 1 ] || [ "$DO_APP" = 1 ]; then require_tool bun; fi
   if [ "$DO_APP" = 1 ]; then require_tool cargo; fi
