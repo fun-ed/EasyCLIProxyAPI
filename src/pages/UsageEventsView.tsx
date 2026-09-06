@@ -7,7 +7,7 @@ import { formatDuration, formatUsageNumber } from '../services/usageNumber';
 import { useDialogFocusTrap } from '../components/useDialogFocusTrap';
 import { usageProviderDetails } from '../services/usageProvider';
 import { usageModelDetails } from '../services/usageModel';
-import { RequestArchiveDetailDialog } from './RequestArchivePanel';
+import { RequestArchiveDetailDialog, useRequestArchiveAvailable } from './RequestArchivePanel';
 
 const compactNumber = (value: number) => formatUsageNumber(value, getCurrentLocale());
 const compactDuration = (value: number) => formatDuration(value, getCurrentLocale());
@@ -435,6 +435,7 @@ export function EventsView({
   const [draftVisibleColumnKeys, setDraftVisibleColumnKeys] = useState<EventColumnKey[]>(visibleColumnKeys);
   const [resizingCol, setResizingCol] = useState<EventColumnKey | null>(null);
   const [archiveRequestId, setArchiveRequestId] = useState('');
+  const archiveAvailable = useRequestArchiveAvailable() !== false;
 
   const columnDialogRef = useDialogFocusTrap<HTMLElement>({
     active: columnSettingsOpen,
@@ -657,9 +658,9 @@ export function EventsView({
               {events.items.map((record) => (
                 <tr
                   key={record.row_id}
-                  className={record.request_id ? 'usage-event-row-openable' : undefined}
-                  title={record.request_id ? t('usage.archive.viewDetail') : undefined}
-                  onClick={() => record.request_id && setArchiveRequestId(record.request_id)}
+                  className={archiveAvailable && record.request_id ? 'usage-event-row-openable' : undefined}
+                  title={archiveAvailable && record.request_id ? t('usage.archive.viewDetail') : undefined}
+                  onClick={() => archiveAvailable && record.request_id && setArchiveRequestId(record.request_id)}
                 >
                   {visibleColumns.map((column) => (
                     <UsageEventCell
