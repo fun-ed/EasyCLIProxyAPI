@@ -58,6 +58,10 @@ export type RequestArchiveDetail = RequestArchiveSummary & {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
+};
+
+/** Raw transcript sections, fetched only when the raw tab is opened. */
+export type RequestArchivePayloads = {
   requestHeadersJson: string;
   responseHeadersJson: string;
   requestBody: string;
@@ -91,6 +95,8 @@ export const requestArchiveApi = {
   query: (query: RequestArchiveQuery) =>
     invoke<RequestArchivePage>('query_request_archive_records', { query }),
   record: (id: number) => invoke<RequestArchiveDetail | null>('get_request_archive_record', { id }),
+  payloads: (id: number) =>
+    invoke<RequestArchivePayloads | null>('get_request_archive_payloads', { id }),
   recordByRequestId: (requestId: string) =>
     invoke<RequestArchiveDetail | null>('get_request_archive_record_by_request_id', { requestId }),
   models: () => invoke<string[]>('get_request_archive_models'),

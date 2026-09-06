@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <em>This is a maintained fork. See <a href="README.fork.md">README.fork.md</a> for build and run instructions, and <a href="FORK.md">FORK.md</a> for the maintenance contract.</em>
+</p>
+
+<p align="center">
   <img src="src/assets/logo.jpg" width="112" alt="EasyCLIProxyAPI Logo">
 </p>
 
