@@ -206,8 +206,12 @@ async fn resolve_app_update(
     let portable_support = target
         .map(|(_, arch)| validate_local_portable_app_manifest(arch))
         .transpose()?;
-    let auto_update_supported = portable_support == Some(true) && asset.is_some();
-    let unsupported_reason = if auto_update_supported {
+    // A fork must never install an upstream release over itself.
+    let is_fork = crate::fork_identity::is_fork_build(&app);
+    let auto_update_supported = !is_fork && portable_support == Some(true) && asset.is_some();
+    let unsupported_reason = if is_fork {
+        Some(crate::fork_identity::self_update_blocked_reason())
+    } else if auto_update_supported {
         None
     } else if portable_support != Some(true) {
         Some("This application is not a portable version that supports automatic upgrades. Manually download the first supported version".to_string())
@@ -668,6 +672,11 @@ pub(crate) async fn start_app_update(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppUpdateState>,
 ) -> Result<(), String> {
+    // Second line of defence: hiding the button is not enough, since the command
+    // stays reachable and installing upstream here would erase the fork.
+    if crate::fork_identity::is_fork_build(&app) {
+        return Err(crate::fork_identity::self_update_blocked_reason());
+    }
     if portable_update_platform_key().is_none() {
         return Err("The current platform does not support in-app automatic upgrades".to_string());
     }

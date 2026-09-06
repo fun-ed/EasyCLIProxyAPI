@@ -128,6 +128,7 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 
 ```
 ┌─ A 區：純新增（零衝突）────────────────────────────────┐
+│  src-tauri/src/fork_identity.rs                        │
 │  src-tauri/src/model_prices_dev.rs                     │
 │  src-tauri/src/tests/model_prices_dev.rs               │
 │  src-tauri/src/request_archive.rs                      │
@@ -234,6 +235,25 @@ export const jaOverrides = {
 - `src-tauri/src/tray.rs` 13 處狀態 tooltip、`i18n` 三語系的敘述文字 → 仍顯示 `EasyCLIProxyAPI`
 - `scripts/portable.mjs` 的 `portable-app.json` `application: 'EasyCLIProxyAPI'` → 改了會讓 in-app 更新比對 upstream release 資產失效
 - `Cargo.toml` `name = "cpa-gui"`、`package.json` `name` → 會連動 `target/release/cpa-gui`、`set-version.mjs`、`release.yml`
+
+---
+
+## 3.5 版本號與自我更新
+
+**版本號不需要、也不應該手動對齊 upstream。** `Cargo.toml` 的 `version` 是 upstream 管理的，rebase 時自動繼承，這正好標示了 fork 目前的 upstream 基底，改動它反而會失去這個資訊。
+
+**但版本號會帶來一個嚴重風險：** app 每次啟動都會向 `router-for-me/EasyCLIProxyAPI/releases` 檢查更新（`src/appUpdate.tsx` 的 startup check）。fork 繼承 upstream 的版本號，因此 upstream 一發新版，fork 就會顯示「有更新可用」，而按下去會**下載官方版覆蓋掉 fork 的全部改動**，且無法復原。
+
+`fork_identity.rs` 以 bundle identifier 的 `.fork` 後綴辨識 fork 版本並封鎖這條路徑：
+
+| 防線 | 位置 | 行為 |
+| --- | --- | --- |
+| 1 | `check_app_update` | `auto_update_supported = false`，並在 upstream 既有的 `unsupported_reason` 欄位說明原因與替代做法 |
+| 2 | `start_app_update` | 直接回錯，避免命令被繞過 |
+
+用 identifier 而非另設編譯旗標，是因為 `tauri.conf.json` 已經有 `com.cpa.gui.fork`（§3.4 的改名），不需要多維護一份設定。測試 `only_the_fork_bundle_identifier_disables_self_update` 會確認 `com.cpa.gui.forked` 這種較長後綴不會被誤判。
+
+要升級 fork 就重新建置：`./sync-and-build.sh --app`。
 
 ---
 
