@@ -601,3 +601,49 @@ fn only_per_request_transcripts_are_treated_as_archive_sources() {
     assert!(!is_log_candidate("response-body-123.log"));
     assert!(!is_log_candidate("notes.txt"));
 }
+
+#[test]
+fn oversized_conversations_keep_valid_json_instead_of_a_cut_off_body() {
+    use crate::request_archive::testing::truncate_messages;
+
+    // Roughly 40 KB of conversation.
+    let items: Vec<serde_json::Value> = (0..40)
+        .map(|index| {
+            serde_json::json!({"role": "user", "content": format!("{index}{}", "x".repeat(1000))})
+        })
+        .collect();
+    let full = serde_json::to_string(&serde_json::Value::Array(items)).unwrap();
+
+    // Under budget nothing changes.
+    let (kept, dropped) = truncate_messages(&full, full.len());
+    assert_eq!(kept, full);
+    assert!(!dropped);
+
+    // Over budget the result must still parse, which a byte-wise cut would not.
+    let (trimmed, dropped) = truncate_messages(&full, 10_000);
+    assert!(dropped);
+    let parsed: serde_json::Value = serde_json::from_str(&trimmed)
+        .expect("a trimmed conversation must remain valid JSON");
+    let kept_items = parsed.as_array().expect("array");
+    assert!(!kept_items.is_empty(), "at least one message must survive");
+    assert!(kept_items.len() < 40, "some messages must be dropped");
+    assert!(trimmed.len() <= 10_000);
+
+    // The most recent turn is what gets kept.
+    let last = kept_items.last().unwrap()["content"].as_str().unwrap();
+    assert!(last.starts_with("39"), "the newest message must survive, got {}", &last[..4]);
+}
+
+#[test]
+fn a_message_larger_than_the_budget_yields_empty_rather_than_broken_json() {
+    use crate::request_archive::testing::truncate_messages;
+
+    let full = serde_json::to_string(&serde_json::json!([
+        {"role": "user", "content": "y".repeat(5000)}
+    ]))
+    .unwrap();
+
+    let (trimmed, dropped) = truncate_messages(&full, 100);
+    assert!(dropped);
+    assert_eq!(trimmed, "", "an unusable result must be empty, never partial JSON");
+}

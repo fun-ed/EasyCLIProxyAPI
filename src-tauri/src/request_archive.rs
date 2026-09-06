@@ -14,7 +14,10 @@ use tauri::{Emitter, Manager};
 use tokio_util::sync::CancellationToken;
 
 use super::{auth_dir_path_for_core, core_base_dir, core_install_dir, GuiConfigState};
-use parser::{endpoint_from_url, header_value, parse_request_log, request_id_from_filename};
+use parser::{
+    endpoint_from_url, header_value, parse_request_log, request_id_from_filename,
+    truncate_messages_json,
+};
 
 const ARCHIVE_DIR_NAME: &str = "request-records";
 const ARCHIVE_DATABASE_FILE: &str = "requests.db";
@@ -414,7 +417,22 @@ fn ingest_file(
     let parsed = parse_request_log(&contents);
 
     let max_bytes = settings.max_body_kb as usize * 1024;
-    let mut truncated = false;
+
+    // Messages are normally re-derived from `request_body` on read, which avoids
+    // storing the same conversation twice.
+    //
+    // That only works while the stored body is still parseable. Truncating a
+    // multi-megabyte request cuts the JSON mid-value, so re-parsing it yields
+    // nothing and the messages tab comes up empty. When the body will not fit,
+    // keep a copy extracted from the *untruncated* body instead, trimmed by whole
+    // messages so it stays valid JSON.
+    let (messages_json, messages_dropped) = if parsed.request_body.len() <= max_bytes {
+        (String::new(), false)
+    } else {
+        truncate_messages_json(&parsed.messages_json, max_bytes)
+    };
+
+    let mut truncated = messages_dropped;
     let mut cap = |value: &str| {
         let (text, was_truncated) = truncate_text(value, max_bytes);
         truncated = truncated || was_truncated;
@@ -427,9 +445,6 @@ fn ingest_file(
     let response_body = cap(&parsed.response_body);
     let websocket_timeline = cap(&parsed.websocket_timeline);
     let system_prompt = cap(&parsed.system_prompt);
-    // Messages are re-derived from `request_body` on read. Storing both kept two
-    // copies of the same conversation and accounted for most of the database.
-    let messages_json = String::new();
     let tools_json = cap(&parsed.tools_json);
     let api_error_text = cap(&parsed.api_error_text);
 
@@ -1370,5 +1385,9 @@ pub(crate) mod testing {
 
     pub(crate) fn is_log_candidate(name: &str) -> bool {
         is_request_log_candidate(name)
+    }
+
+    pub(crate) fn truncate_messages(messages_json: &str, max_bytes: usize) -> (String, bool) {
+        super::parser::truncate_messages_json(messages_json, max_bytes)
     }
 }
