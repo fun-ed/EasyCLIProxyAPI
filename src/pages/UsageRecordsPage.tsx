@@ -23,7 +23,7 @@ import {
 import { getCurrentLocale, useI18n } from '../i18n';
 import { MessageNotice, FloatingNotice, useAppNotice } from '../appNotice';
 import type { MessageKey } from '../i18n/resources';
-import { RequestArchiveDetailDialog, RequestArchiveSettingsCard } from './RequestArchivePanel';
+import { RequestArchiveDetailDialog, RequestArchiveSettingsCard, useRequestArchiveAvailable } from './RequestArchivePanel';
 import { formatCacheReadRate, formatGenerationSpeed } from '../services/usageMetrics';
 import { formatUsageNumber } from '../services/usageNumber';
 import { handleHorizontalTabKey } from '../components/tabKeyboardNavigation';
@@ -1998,6 +1998,7 @@ function EventsView({
   const [draftVisibleColumnKeys, setDraftVisibleColumnKeys] = useState<EventColumnKey[]>(visibleColumnKeys);
   const [resizingCol, setResizingCol] = useState<EventColumnKey | null>(null);
   const [archiveRequestId, setArchiveRequestId] = useState('');
+  const archiveAvailable = useRequestArchiveAvailable() !== false;
 
   const columnDialogRef = useDialogFocusTrap<HTMLElement>({
     active: columnSettingsOpen,
@@ -2270,9 +2271,9 @@ function EventsView({
               {events.items.map((record) => (
                 <tr
                   key={record.row_id}
-                  className={record.request_id ? 'usage-event-row-openable' : undefined}
-                  title={record.request_id ? t('usage.archive.viewDetail') : undefined}
-                  onClick={() => record.request_id && setArchiveRequestId(record.request_id)}
+                  className={archiveAvailable && record.request_id ? 'usage-event-row-openable' : undefined}
+                  title={archiveAvailable && record.request_id ? t('usage.archive.viewDetail') : undefined}
+                  onClick={() => archiveAvailable && record.request_id && setArchiveRequestId(record.request_id)}
                 >
                   {visibleColumns.map((column) => (
                     <UsageEventCell

@@ -114,3 +114,26 @@ describe('formatArchiveJson', () => {
     expect(formatArchiveJson('   ')).toBe('');
   });
 });
+
+describe('archiveReadiness kill switch', () => {
+  it('fork 总开关优先于其他状态', () => {
+    expect(
+      archiveReadiness({ forkDisabled: true, settingsEnabled: true, requestLogEnabled: true }),
+    ).toBe('fork-disabled');
+    expect(
+      archiveReadiness({ forkDisabled: true, settingsEnabled: false, requestLogEnabled: false }),
+    ).toBe('fork-disabled');
+  });
+
+  it('fork 未关闭时保持原有状态判定', () => {
+    expect(
+      archiveReadiness({ forkDisabled: false, settingsEnabled: true, requestLogEnabled: true }),
+    ).toBe('ready');
+    expect(
+      archiveReadiness({ forkDisabled: false, settingsEnabled: true, requestLogEnabled: false }),
+    ).toBe('awaiting-request-log');
+    expect(
+      archiveReadiness({ forkDisabled: false, settingsEnabled: false, requestLogEnabled: true }),
+    ).toBe('disabled');
+  });
+});
