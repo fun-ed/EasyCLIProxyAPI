@@ -137,3 +137,37 @@ describe('archiveReadiness kill switch', () => {
     ).toBe('disabled');
   });
 });
+
+describe('archiveReadiness commercial mode', () => {
+  it('商用模式優先於 request-log 狀態', () => {
+    expect(
+      archiveReadiness({ commercialMode: true, settingsEnabled: true, requestLogEnabled: true }),
+    ).toBe('commercial-mode');
+    expect(
+      archiveReadiness({ commercialMode: true, settingsEnabled: true, requestLogEnabled: false }),
+    ).toBe('commercial-mode');
+  });
+
+  it('kill switch 仍優先於商用模式，未啟用歸檔則不報商用模式', () => {
+    expect(
+      archiveReadiness({
+        forkDisabled: true,
+        commercialMode: true,
+        settingsEnabled: true,
+        requestLogEnabled: true,
+      }),
+    ).toBe('fork-disabled');
+    expect(
+      archiveReadiness({ commercialMode: true, settingsEnabled: false, requestLogEnabled: true }),
+    ).toBe('disabled');
+  });
+
+  it('商用模式關閉時維持原有判定', () => {
+    expect(
+      archiveReadiness({ commercialMode: false, settingsEnabled: true, requestLogEnabled: true }),
+    ).toBe('ready');
+    expect(
+      archiveReadiness({ commercialMode: false, settingsEnabled: true, requestLogEnabled: false }),
+    ).toBe('awaiting-request-log');
+  });
+});

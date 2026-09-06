@@ -86,6 +86,10 @@ pub(crate) fn fork_archive_disabled() -> bool {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RequestArchiveStatus {
     pub fork_disabled: bool,
+    /// The core refuses to register its request logging middleware while
+    /// commercial mode is on (`internal/api/server.go`), so `request-log` has no
+    /// effect and the archive can never receive data.
+    pub commercial_mode: bool,
     pub settings_enabled: bool,
     pub retention_days: u32,
     pub max_total_mb: u32,
@@ -909,6 +913,7 @@ pub(crate) fn get_request_archive_status(
 
     Ok(RequestArchiveStatus {
         fork_disabled: false,
+        commercial_mode: config.commercial_mode,
         settings_enabled: settings.enabled,
         retention_days: settings.retention_days,
         max_total_mb: settings.max_total_mb,
