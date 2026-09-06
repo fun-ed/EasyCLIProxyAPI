@@ -8,6 +8,8 @@ export type RequestArchiveSettings = {
 };
 
 export type RequestArchiveStatus = RequestArchiveSettings & {
+  /** True when the CPA_FORK_ARCHIVE kill switch turned the whole fork feature off. */
+  forkDisabled: boolean;
   settingsEnabled: boolean;
   requestLogEnabled: boolean;
   recordCount: number;
@@ -93,13 +95,19 @@ export const requestArchiveApi = {
   clear: () => invoke<void>('clear_request_archive'),
 };
 
-export type ArchiveReadiness = 'disabled' | 'awaiting-request-log' | 'ready';
+export type ArchiveReadiness = 'fork-disabled' | 'disabled' | 'awaiting-request-log' | 'ready';
 
 /**
  * Archiving only produces rows when the core is also writing request logs, so a
  * enabled archive without `request-log` is reported as an actionable state.
  */
-export function archiveReadiness(status: Pick<RequestArchiveStatus, 'settingsEnabled' | 'requestLogEnabled'>): ArchiveReadiness {
+export function archiveReadiness(
+  status: Partial<Pick<RequestArchiveStatus, 'forkDisabled'>> &
+    Pick<RequestArchiveStatus, 'settingsEnabled' | 'requestLogEnabled'>,
+): ArchiveReadiness {
+  if (status.forkDisabled) {
+    return 'fork-disabled';
+  }
   if (!status.settingsEnabled) {
     return 'disabled';
   }
