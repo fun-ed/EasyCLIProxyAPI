@@ -550,8 +550,28 @@ fn normalize_usage(usage: &Value) -> TokenUsage {
         cache_read_tokens: cache_read,
         cache_creation_tokens: cache_creation,
         total_tokens: total,
-        raw: Some(usage.clone()),
+        raw: Some(compact_usage(usage)),
     }
+}
+
+/// Codex reports a per-tool-call `attribution` breakdown that dwarfs the usage
+/// object itself (tens of KB versus a few hundred bytes) while contributing
+/// nothing the archive does not already store in dedicated columns. Drop it so
+/// one provider does not dominate the database.
+const BULKY_USAGE_KEYS: [&str; 1] = ["attribution"];
+
+fn compact_usage(usage: &Value) -> Value {
+    let Value::Object(object) = usage else {
+        return usage.clone();
+    };
+    if !BULKY_USAGE_KEYS.iter().any(|key| object.contains_key(*key)) {
+        return usage.clone();
+    }
+    let mut compacted = object.clone();
+    for key in BULKY_USAGE_KEYS {
+        compacted.remove(key);
+    }
+    Value::Object(compacted)
 }
 
 fn first_number(value: &Value, keys: &[&str]) -> Option<i64> {
