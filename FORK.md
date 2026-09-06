@@ -405,7 +405,9 @@ git push -u origin feature/request-archive
 
 ### 8.1 真實 log 迴歸測試
 
-`src-tauri/src/tests/fixtures/real-core-*.log` 是從 **CLIProxyAPI 7.2.151 實際執行產出**的 transcript，不是手寫樣本。用隔離實例（獨立 port、獨立 auth-dir、`request-log: true`）產生，未動到正式環境、未消耗任何額度。
+`src-tauri/src/tests/fixtures/real-core-*.txt` 是從 **CLIProxyAPI 7.2.151 實際執行產出**的 transcript，不是手寫樣本。
+
+> 副檔名刻意用 `.txt` 而非 `.log`：upstream 的 `.gitignore:12` 有 `*.log`，用 `.log` 會被靜默排除在版控外，新 clone 會因 `include_str!` 找不到檔案而編譯失敗。**新增 fixture 時務必用 `.txt`。**用隔離實例（獨立 port、獨立 auth-dir、`request-log: true`）產生，未動到正式環境、未消耗任何額度。
 
 由兩個測試守護：
 
