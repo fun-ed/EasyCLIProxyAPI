@@ -137,7 +137,7 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 │  src/styles/requestArchive.css                         │
 │  tests/requestArchive.test.ts                          │
 │  scripts/fork-sync-and-build.sh                        │
-│  FORK.md                                               │
+│  FORK.md  AGENTS.md  README.fork.md                    │
 └────────────────────────────────────────────────────────┘
 ┌─ B 區：整合點（rebase 時可能衝突，共 58 行）──────────┐
 │  src-tauri/src/main.rs                    14 行        │
