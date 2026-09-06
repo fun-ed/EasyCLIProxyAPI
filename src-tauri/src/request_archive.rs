@@ -31,11 +31,13 @@ const MAX_FILES_PER_SCAN: usize = 200;
 const DEFAULT_RETENTION_DAYS: u32 = 30;
 const DEFAULT_MAX_TOTAL_MB: u32 = 5_120;
 const DEFAULT_MAX_BODY_KB: u32 = 4_096;
+const DEFAULT_LOGS_MAX_MB: u32 = 1_024;
 
 const SETTING_ENABLED: &str = "enabled";
 const SETTING_RETENTION_DAYS: &str = "retention_days";
 const SETTING_MAX_TOTAL_MB: &str = "max_total_mb";
 const SETTING_MAX_BODY_KB: &str = "max_body_kb";
+const SETTING_LOGS_MAX_MB: &str = "logs_max_mb";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +46,13 @@ pub(crate) struct RequestArchiveSettings {
     pub retention_days: u32,
     pub max_total_mb: u32,
     pub max_body_kb: u32,
+    /// Cap for the core's log directory, enforced by the archive itself.
+    ///
+    /// The core has its own `logs-max-total-size-mb`, but it only counts
+    /// top-level `.log` files and ignores the nested directories it spills
+    /// oversized bodies into, so the directory can exceed that cap on disk.
+    /// `0` defers entirely to the core.
+    pub logs_max_mb: u32,
 }
 
 impl Default for RequestArchiveSettings {
@@ -53,6 +62,7 @@ impl Default for RequestArchiveSettings {
             retention_days: DEFAULT_RETENTION_DAYS,
             max_total_mb: DEFAULT_MAX_TOTAL_MB,
             max_body_kb: DEFAULT_MAX_BODY_KB,
+            logs_max_mb: DEFAULT_LOGS_MAX_MB,
         }
     }
 }
@@ -64,6 +74,7 @@ impl RequestArchiveSettings {
         self.retention_days = self.retention_days.min(3_650);
         self.max_total_mb = self.max_total_mb.min(1_024 * 1_024);
         self.max_body_kb = self.max_body_kb.clamp(16, 1_024 * 64);
+        self.logs_max_mb = self.logs_max_mb.min(1_024 * 1_024);
         self
     }
 }
@@ -316,6 +327,9 @@ fn load_settings(connection: &Connection) -> RequestArchiveSettings {
         max_body_kb: read_setting(connection, SETTING_MAX_BODY_KB)
             .and_then(|value| value.parse().ok())
             .unwrap_or(defaults.max_body_kb),
+        logs_max_mb: read_setting(connection, SETTING_LOGS_MAX_MB)
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(defaults.logs_max_mb),
     }
     .normalized()
 }
@@ -339,6 +353,11 @@ fn store_settings(
         connection,
         SETTING_MAX_BODY_KB,
         &settings.max_body_kb.to_string(),
+    )?;
+    write_setting(
+        connection,
+        SETTING_LOGS_MAX_MB,
+        &settings.logs_max_mb.to_string(),
     )
 }
 
@@ -618,6 +637,96 @@ fn logs_directory_bytes(directory: &Path) -> i64 {
     walk(directory, 0)
 }
 
+/// Holds the core's log directory under the archive's own cap.
+///
+/// The core already enforces `logs-max-total-size-mb`, but it only sums
+/// top-level `.log` files and skips the directories it spills oversized bodies
+/// into, so the directory can sit above that cap on disk. This pass measures the
+/// same way the UI reports — recursively — and therefore governs the number the
+/// user actually set.
+///
+/// Only transcripts the archive has already stored are removed, so enforcement
+/// can never destroy a request that was not captured first. If everything left
+/// is unarchived, the pass stops rather than deleting it.
+fn enforce_logs_directory_limit(
+    connection: &Connection,
+    logs_dir: &Path,
+    settings: RequestArchiveSettings,
+) -> Result<usize, String> {
+    if settings.logs_max_mb == 0 || !logs_dir.is_dir() {
+        return Ok(0);
+    }
+    let limit = i64::from(settings.logs_max_mb) * 1024 * 1024;
+    if logs_directory_bytes(logs_dir) <= limit {
+        return Ok(0);
+    }
+
+    let mut archived = std::collections::HashSet::new();
+    {
+        let mut statement = connection
+            .prepare("SELECT source_file FROM request_records")
+            .map_err(|error| format!("读取已归档来源失败: {error}"))?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| format!("读取已归档来源失败: {error}"))?;
+        for row in rows {
+            archived.insert(row.map_err(|error| format!("读取已归档来源失败: {error}"))?);
+        }
+    }
+
+    let Ok(entries) = fs::read_dir(logs_dir) else {
+        return Ok(0);
+    };
+    let mut removable: Vec<(i64, PathBuf, i64)> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        let age_key = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis() as i64)
+            .unwrap_or_default();
+
+        if file_type.is_dir() {
+            if name.starts_with("request-log-parts-") {
+                removable.push((age_key, path.clone(), logs_directory_bytes(&path)));
+            }
+            continue;
+        }
+        if is_request_log_candidate(name) && archived.contains(name) {
+            removable.push((age_key, path.clone(), metadata.len() as i64));
+        }
+    }
+
+    removable.sort_by_key(|(age_key, _, _)| *age_key);
+    let mut total = logs_directory_bytes(logs_dir);
+    let mut removed = 0_usize;
+    for (_, path, size) in removable {
+        if total <= limit {
+            break;
+        }
+        let deleted = if path.is_dir() {
+            fs::remove_dir_all(&path).is_ok()
+        } else {
+            fs::remove_file(&path).is_ok()
+        };
+        if deleted {
+            total -= size;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 fn apply_retention(
     connection: &Connection,
     root: &Path,
@@ -797,6 +906,9 @@ async fn ingester_loop(app: tauri::AppHandle, token: CancellationToken) {
             let mut ingested = 0;
             for logs_dir in core_logs_directories(&auth_dir)? {
                 ingested += scan_once(&connection, &root, &logs_dir, settings)?;
+                // Runs every cycle, not only after an ingest: the directory keeps
+                // growing while the archive has nothing new to take in.
+                enforce_logs_directory_limit(&connection, &logs_dir, settings)?;
             }
             Ok(ingested)
         })();
@@ -1389,5 +1501,13 @@ pub(crate) mod testing {
 
     pub(crate) fn truncate_messages(messages_json: &str, max_bytes: usize) -> (String, bool) {
         super::parser::truncate_messages_json(messages_json, max_bytes)
+    }
+
+    pub(crate) fn enforce_logs_cap(
+        connection: &Connection,
+        logs_dir: &Path,
+        settings: RequestArchiveSettings,
+    ) -> Result<usize, String> {
+        enforce_logs_directory_limit(connection, logs_dir, settings)
     }
 }

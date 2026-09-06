@@ -244,6 +244,7 @@ fn settings_round_trip_and_clamp_body_limit() {
             retention_days: 7,
             max_total_mb: 100,
             max_body_kb: 1,
+            logs_max_mb: 256,
         },
     )
     .unwrap();
@@ -646,4 +647,58 @@ fn a_message_larger_than_the_budget_yields_empty_rather_than_broken_json() {
     let (trimmed, dropped) = truncate_messages(&full, 100);
     assert!(dropped);
     assert_eq!(trimmed, "", "an unusable result must be empty, never partial JSON");
+}
+
+#[test]
+fn the_log_cap_removes_archived_transcripts_and_spares_the_rest() {
+    let root = archive_test_root("logs-cap");
+    let logs = root.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+
+    let connection = testing::open_database(&root).unwrap();
+    let settings = RequestArchiveSettings {
+        enabled: true,
+        ..RequestArchiveSettings::default()
+    };
+
+    // Three archived transcripts, oldest first.
+    for index in 0..3 {
+        let path = logs.join(format!("v1-messages-2026-09-06T0121{index:02}-cap-{index}.log"));
+        fs::write(&path, sample_log(&format!("cap-{index}"))).unwrap();
+        assert!(testing::ingest(&connection, &path, settings).unwrap());
+        // Pad each file so the directory clearly exceeds a small cap.
+        let mut padded = fs::read_to_string(&path).unwrap();
+        padded.push_str(&"z".repeat(400_000));
+        fs::write(&path, padded).unwrap();
+    }
+
+    // One transcript the archive has never seen must survive regardless.
+    let unarchived = logs.join("v1-messages-2026-09-06T012199-never-seen.log");
+    fs::write(&unarchived, "x".repeat(400_000)).unwrap();
+
+    let capped = RequestArchiveSettings {
+        logs_max_mb: 1,
+        ..settings
+    };
+    let removed = testing::enforce_logs_cap(&connection, &logs, capped).unwrap();
+
+    assert!(removed > 0, "the cap must delete something");
+    assert!(
+        unarchived.exists(),
+        "a transcript that was never archived must never be deleted"
+    );
+
+    // A cap of 0 defers to the core and must not touch anything.
+    let before = fs::read_dir(&logs).unwrap().count();
+    let untouched = RequestArchiveSettings {
+        logs_max_mb: 0,
+        ..settings
+    };
+    assert_eq!(
+        testing::enforce_logs_cap(&connection, &logs, untouched).unwrap(),
+        0
+    );
+    assert_eq!(fs::read_dir(&logs).unwrap().count(), before);
+
+    fs::remove_dir_all(&root).ok();
 }
