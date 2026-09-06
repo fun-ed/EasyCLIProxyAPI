@@ -9,6 +9,7 @@ export const requestArchiveZhCN = {
   'usage.archive.enable': '启用完整请求归档',
   'usage.archive.requestLogRequired': '核心的 request-log 未开启，归档不会产生任何记录。',
   'usage.archive.enableRequestLog': '立即开启 request-log',
+  'usage.archive.requestLogSwitch': '开启核心 request-log（归档的数据来源）',
   'usage.archive.retentionDays': '保留天数（0 表示不限制）',
   'usage.archive.maxTotalMb': '数据库上限 MB（0 表示不限制）',
   'usage.archive.maxBodyKb': '单字段上限 KB',
@@ -47,6 +48,7 @@ export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.requestLogRequired':
     'The core has request-log disabled, so the archive will not collect anything.',
   'usage.archive.enableRequestLog': 'Enable request-log now',
+  'usage.archive.requestLogSwitch': 'Enable the core request-log (the archive data source)',
   'usage.archive.retentionDays': 'Retention days (0 means unlimited)',
   'usage.archive.maxTotalMb': 'Database cap in MB (0 means unlimited)',
   'usage.archive.maxBodyKb': 'Per-field cap in KB',
@@ -85,6 +87,7 @@ export const requestArchiveJa: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.requestLogRequired':
     'コアの request-log が無効なため、アーカイブには何も記録されません。',
   'usage.archive.enableRequestLog': 'request-log を今すぐ有効化',
+  'usage.archive.requestLogSwitch': 'コアの request-log を有効化（アーカイブのデータ元）',
   'usage.archive.retentionDays': '保持日数（0 は無制限）',
   'usage.archive.maxTotalMb': 'データベース上限 MB（0 は無制限）',
   'usage.archive.maxBodyKb': 'フィールドごとの上限 KB',

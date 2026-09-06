@@ -439,8 +439,45 @@ git push -u origin feature/request-archive
 | 項目 | 值 |
 | --- | --- |
 | DB 路徑 | `<core base dir>/request-records/requests.db` |
-| macOS 實際位置 | `~/Library/Application Support/com.cpa.gui/request-records/requests.db` |
-| 開發模式位置 | `src-tauri/target/debug/request-records/requests.db` |
+
+### 9.1 資料目錄依「怎麼打包」而不同（重要）
+
+`core_base_dir()`（`core_runtime.rs:1361`）**只有執行檔位於 `.app` bundle 內時**才回傳共用目錄，否則回傳執行檔所在目錄：
+
+| 建置方式 | 執行檔位置 | 資料目錄（含 `request-records/`、`usage-records/`、`oauth/`） |
+| --- | --- | --- |
+| `./build.sh`（`--no-bundle` 可攜版） | `bin-work/EasyCLIProxyAPI-fork` | **`bin-work/`** — 自成一個**全新空白 profile** |
+| `bun tauri build`（`.app` bundle） | `.../bundle/macos/EasyCLIProxyAPI-fork.app` | `~/Library/Application Support/com.cpa.gui` — **與正式版共用** |
+| `bun tauri dev` | `src-tauri/target/debug/` | `src-tauri/target/debug/` |
+
+**這是 upstream 的設計（可攜版本來就該自我包含），不是 fork 的 bug。**
+
+實務影響：用 `./build.sh` 的可攜版測試時，會看到**沒有憑證、沒有用量記錄、歸檔 0 筆**，因為那是全新 profile。要用你真實的資料測，必須建 `.app`：
+
+```bash
+cd EasyCLIProxyAPI
+bun tauri build     # 產出 src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
+open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
+```
+
+`.app` 版與正式版共用 `~/Library/Application Support/com.cpa.gui`（auth 檔、config、`usage.db` 都同一份），但**不可同時執行**，兩者會搶 port 8317。
+
+### 9.2 啟用歸檔的兩個開關
+
+歸檔要出資料需要**兩個開關都開**，缺一不可：
+
+1. **啟用完整請求歸檔** — 歸檔自己的開關，存在歸檔 DB 的 `archive_metadata`
+2. **核心 request-log** — 資料來源，存在 GUI 的 `config.toml` 並套用到核心 config
+
+`request-log` 預設 `false`，且**本 fork 的歸檔卡片是整個 app 唯一能開它的地方**（upstream 註冊了 `set_core_request_log` 命令但沒有做任何 UI）。只開第一個開關會得到 0 筆記錄。
+
+驗證兩個開關的實際狀態：
+
+```bash
+BASE="$HOME/Library/Application Support/com.cpa.gui"
+sqlite3 "$BASE/request-records/requests.db" "SELECT key,value FROM archive_metadata;"
+grep -n "^request-log" "$BASE/config.toml" "$BASE/cpa-core/config.yaml"
+```
 | 主表 | `request_records`（38 欄）、`archive_metadata`（設定） |
 | 掃描間隔 | 5 秒，單次最多 200 檔 |
 | 去重鍵 | `source_file` UNIQUE + `source_fingerprint = "{len}:{mtime_ms}"` |
