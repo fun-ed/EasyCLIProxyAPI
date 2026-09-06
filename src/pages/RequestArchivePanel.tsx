@@ -10,8 +10,11 @@ import {
   parseArchiveMessages,
   parseArchiveToolNames,
   requestArchiveApi,
+  requestArchiveSettingsDraft,
+  requestArchiveSettingsFromDraft,
   type RequestArchiveDetail,
   type RequestArchivePayloads,
+  type RequestArchiveSettingsDraft,
   type RequestArchiveStatus,
 } from '../services/requestArchive';
 import '../styles/requestArchive.css';
@@ -63,30 +66,42 @@ export function RequestArchiveSettingsCard() {
   const { status, error, refresh, setError } = useArchiveStatus();
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [draft, setDraft] = useState<RequestArchiveSettingsDraft | null>(null);
 
   const readiness = status ? archiveReadiness(status) : 'disabled';
+  const settings = useMemo(
+    () => (draft ? requestArchiveSettingsFromDraft(draft) : null),
+    [draft],
+  );
+
+  useEffect(() => {
+    if (status) {
+      setDraft(requestArchiveSettingsDraft(status));
+    }
+  }, [status]);
 
   if (status?.forkDisabled) {
     return null;
   }
 
-  const persist = async (changes: Partial<RequestArchiveStatus>) => {
-    if (!status) return;
+  const saveSettings = async () => {
+    if (!settings) return;
     setSaving(true);
     try {
-      await requestArchiveApi.saveSettings({
-        enabled: changes.settingsEnabled ?? status.settingsEnabled,
-        retentionDays: changes.retentionDays ?? status.retentionDays,
-        maxTotalMb: changes.maxTotalMb ?? status.maxTotalMb,
-        maxBodyKb: changes.maxBodyKb ?? status.maxBodyKb,
-        logsMaxMb: changes.logsMaxMb ?? status.logsMaxMb,
-      });
+      await requestArchiveApi.saveSettings(settings);
       await refresh();
     } catch (saveError) {
       setError(String(saveError));
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateDraft = (
+    field: Exclude<keyof RequestArchiveSettingsDraft, 'enabled'>,
+    value: string,
+  ) => {
+    setDraft((current) => (current ? { ...current, [field]: value } : current));
   };
 
   const setRequestLog = async (enabled: boolean) => {
@@ -159,16 +174,6 @@ export function RequestArchiveSettingsCard() {
             <label className="usage-archive-switch">
               <input
                 type="checkbox"
-                checked={status.settingsEnabled}
-                disabled={saving}
-                onChange={(event) => void persist({ settingsEnabled: event.target.checked })}
-              />
-              <span>{t('usage.archive.enable')}</span>
-            </label>
-
-            <label className="usage-archive-switch">
-              <input
-                type="checkbox"
                 checked={status.requestLogEnabled}
                 disabled={saving || status.commercialMode}
                 onChange={(event) => void setRequestLog(event.target.checked)}
@@ -185,50 +190,81 @@ export function RequestArchiveSettingsCard() {
             <p className="usage-archive-alert">{t('usage.archive.requestLogRequired')}</p>
           ) : null}
 
-          <div className="usage-archive-fields">
-            <label>
-              <span>{t('usage.archive.retentionDays')}</span>
-              <input
-                type="number"
-                min={0}
-                max={3650}
-                value={status.retentionDays}
-                disabled={saving}
-                onChange={(event) => void persist({ retentionDays: Number(event.target.value) })}
-              />
-            </label>
-            <label>
-              <span>{t('usage.archive.maxTotalMb')}</span>
-              <input
-                type="number"
-                min={0}
-                value={status.maxTotalMb}
-                disabled={saving}
-                onChange={(event) => void persist({ maxTotalMb: Number(event.target.value) })}
-              />
-            </label>
-            <label>
-              <span>{t('usage.archive.logsMaxMb')}</span>
-              <input
-                type="number"
-                min={0}
-                value={status.logsMaxMb}
-                disabled={saving}
-                onChange={(event) => void persist({ logsMaxMb: Number(event.target.value) })}
-              />
-            </label>
-            <label>
-              <span>{t('usage.archive.maxBodyKb')}</span>
-              <input
-                type="number"
-                min={16}
-                max={65536}
-                value={status.maxBodyKb}
-                disabled={saving}
-                onChange={(event) => void persist({ maxBodyKb: Number(event.target.value) })}
-              />
-            </label>
-          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveSettings();
+            }}
+          >
+            <div className="usage-archive-switches">
+              <label className="usage-archive-switch">
+                <input
+                  type="checkbox"
+                  checked={draft?.enabled ?? status.settingsEnabled}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current ? { ...current, enabled: event.target.checked } : current,
+                    )
+                  }
+                />
+                <span>{t('usage.archive.enable')}</span>
+              </label>
+            </div>
+
+            <div className="usage-archive-fields">
+              <label>
+                <span>{t('usage.archive.retentionDays')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={3650}
+                  value={draft?.retentionDays ?? String(status.retentionDays)}
+                  disabled={saving}
+                  onChange={(event) => updateDraft('retentionDays', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>{t('usage.archive.maxTotalMb')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1048576}
+                  value={draft?.maxTotalMb ?? String(status.maxTotalMb)}
+                  disabled={saving}
+                  onChange={(event) => updateDraft('maxTotalMb', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>{t('usage.archive.logsMaxMb')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1048576}
+                  value={draft?.logsMaxMb ?? String(status.logsMaxMb)}
+                  disabled={saving}
+                  onChange={(event) => updateDraft('logsMaxMb', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>{t('usage.archive.maxBodyKb')}</span>
+                <input
+                  type="number"
+                  min={16}
+                  max={65536}
+                  value={draft?.maxBodyKb ?? String(status.maxBodyKb)}
+                  disabled={saving}
+                  onChange={(event) => updateDraft('maxBodyKb', event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="usage-archive-actions">
+              <button type="submit" disabled={saving || !settings}>
+                <span>{t('usage.archive.saveSettings')}</span>
+              </button>
+            </div>
+          </form>
 
           <dl className="usage-archive-stats">
             <div>
