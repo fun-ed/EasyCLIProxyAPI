@@ -1,0 +1,36 @@
+=== REQUEST INFO ===
+Version: 7.2.151
+URL: /v1/chat/completions
+Method: POST
+Downstream Transport: http
+Upstream Transport: http
+Timestamp: 2026-09-06T11:54:07.84484+08:00
+
+
+=== HEADERS ===
+Content-Length: 226
+User-Agent: curl/8.7.1
+Accept: */*
+Authorization: Bearer e2e-...-key
+Content-Type: application/json
+X-Request-Id: e2e-openai-0002
+
+
+=== REQUEST BODY ===
+{"model":"gpt-5","stream":true,"messages":[{"role":"system","content":"sys prompt for openai shape"},{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"lookup","description":"d","parameters":{}}}]}
+
+
+=== API RESPONSE ===
+Timestamp: 2026-09-06T11:54:07.851742+08:00
+{"error":{"message":"unknown provider for model gpt-5","type":"invalid_request_error","code":"model_not_found","param":"model"}}
+
+
+=== RESPONSE ===
+Status: 400
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+Access-Control-Allow-Headers: *
+Access-Control-Expose-Headers: X-CPA-TRACE-ID, X-CPA-VERSION, X-CPA-COMMIT, X-CPA-BUILD-DATE, X-CPA-SUPPORT-PLUGIN, X-CPA-HOME-VERSION, X-CPA-HOME-BUILD-DATE, X-SERVER-VERSION, X-SERVER-BUILD-DATE, Location, Retry-After, X-Request-Id, OpenAI-Request-Id
+
+{"error":{"message":"unknown provider for model gpt-5","type":"invalid_request_error","code":"model_not_found","param":"model"}}

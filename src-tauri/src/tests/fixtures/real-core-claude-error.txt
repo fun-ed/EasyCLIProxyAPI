@@ -1,0 +1,36 @@
+=== REQUEST INFO ===
+Version: 7.2.151
+URL: /v1/messages
+Method: POST
+Downstream Transport: http
+Upstream Transport: http
+Timestamp: 2026-09-06T11:51:25.589677+08:00
+
+
+=== HEADERS ===
+X-Request-Id: e2e-claude-0001
+Content-Length: 336
+User-Agent: curl/8.7.1
+Accept: */*
+Authorization: Bearer e2e-...-key
+Content-Type: application/json
+
+
+=== REQUEST BODY ===
+{"model":"claude-sonnet-4-20250514","max_tokens":64,"system":"You are a terse assistant used for an end to end archive test.","messages":[{"role":"user","content":"Reply with the single word OK."}],"tools":[{"name":"get_weather","description":"Look up weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}}}}]}
+
+
+=== API RESPONSE ===
+Timestamp: 2026-09-06T11:51:25.590731+08:00
+{"type":"error","error":{"type":"invalid_request_error","message":"unknown provider for model claude-sonnet-4-20250514"}}
+
+
+=== RESPONSE ===
+Status: 400
+Access-Control-Allow-Headers: *
+Access-Control-Expose-Headers: X-CPA-TRACE-ID, X-CPA-VERSION, X-CPA-COMMIT, X-CPA-BUILD-DATE, X-CPA-SUPPORT-PLUGIN, X-CPA-HOME-VERSION, X-CPA-HOME-BUILD-DATE, X-SERVER-VERSION, X-SERVER-BUILD-DATE, Location, Retry-After, X-Request-Id, OpenAI-Request-Id
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+
+{"type":"error","error":{"type":"invalid_request_error","message":"unknown provider for model claude-sonnet-4-20250514"}}
