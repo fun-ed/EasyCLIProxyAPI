@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, FolderOpen, RefreshCw, X } from 'lucide-react';
+import { Archive, FolderOpen, HardDrive, RefreshCw, Trash2, X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useI18n } from '../i18n';
+import type { MessageKey } from '../i18n/resources';
 import {
   archiveReadiness,
   formatArchiveBytes,
@@ -61,6 +62,7 @@ export function RequestArchiveSettingsCard() {
   const { t } = useI18n();
   const { status, error, refresh, setError } = useArchiveStatus();
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const readiness = status ? archiveReadiness(status) : 'disabled';
 
@@ -98,6 +100,30 @@ export function RequestArchiveSettingsCard() {
     }
   };
 
+  const runMaintenance = async (
+    action: 'compact' | 'purgeLogs',
+    confirmKey?: MessageKey,
+  ) => {
+    if (confirmKey && !window.confirm(t(confirmKey))) return;
+    setSaving(true);
+    setNotice('');
+    try {
+      const result = await requestArchiveApi[action]();
+      setNotice(
+        t('usage.archive.maintenanceResult', {
+          files: String(result.removedFiles),
+          freed: formatArchiveBytes(result.freedBytes),
+          skipped: String(result.skippedFiles),
+        }),
+      );
+      await refresh();
+    } catch (maintenanceError) {
+      setError(String(maintenanceError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const clear = async () => {
     if (!window.confirm(t('usage.archive.clearConfirm'))) return;
     setSaving(true);
@@ -123,7 +149,8 @@ export function RequestArchiveSettingsCard() {
         </div>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
+      {error ? <p className="usage-archive-alert">{error}</p> : null}
+      {notice ? <p className="usage-archive-notice">{notice}</p> : null}
 
       {status ? (
         <>
@@ -202,6 +229,10 @@ export function RequestArchiveSettingsCard() {
               <dd>{formatArchiveBytes(status.databaseBytes)}</dd>
             </div>
             <div>
+              <dt>{t('usage.archive.logsSize')}</dt>
+              <dd>{formatArchiveBytes(status.logsBytes)}</dd>
+            </div>
+            <div>
               <dt>{t('usage.archive.lastIngestedAt')}</dt>
               <dd>{status.lastIngestedAt || '—'}</dd>
             </div>
@@ -228,6 +259,18 @@ export function RequestArchiveSettingsCard() {
             <button type="button" disabled={saving} onClick={() => void invoke('open_core_logs_directory')}>
               <FolderOpen size={16} aria-hidden="true" />
               <span>{t('usage.archive.openLogs')}</span>
+            </button>
+            <button type="button" disabled={saving} onClick={() => void runMaintenance('compact')}>
+              <HardDrive size={16} aria-hidden="true" />
+              <span>{t('usage.archive.compact')}</span>
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void runMaintenance('purgeLogs', 'usage.archive.purgeLogsConfirm')}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              <span>{t('usage.archive.purgeLogs')}</span>
             </button>
             <button
               type="button"
