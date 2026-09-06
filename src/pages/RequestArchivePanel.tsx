@@ -79,6 +79,7 @@ export function RequestArchiveSettingsCard() {
         retentionDays: changes.retentionDays ?? status.retentionDays,
         maxTotalMb: changes.maxTotalMb ?? status.maxTotalMb,
         maxBodyKb: changes.maxBodyKb ?? status.maxBodyKb,
+        logsMaxMb: changes.logsMaxMb ?? status.logsMaxMb,
       });
       await refresh();
     } catch (saveError) {
@@ -204,6 +205,16 @@ export function RequestArchiveSettingsCard() {
                 value={status.maxTotalMb}
                 disabled={saving}
                 onChange={(event) => void persist({ maxTotalMb: Number(event.target.value) })}
+              />
+            </label>
+            <label>
+              <span>{t('usage.archive.logsMaxMb')}</span>
+              <input
+                type="number"
+                min={0}
+                value={status.logsMaxMb}
+                disabled={saving}
+                onChange={(event) => void persist({ logsMaxMb: Number(event.target.value) })}
               />
             </label>
             <label>

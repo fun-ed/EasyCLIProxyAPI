@@ -306,13 +306,33 @@ sqlite3 "$DB" "VACUUM;"     # 或按 UI 的「压缩数据库」
 sqlite3 -header -column "$DB" "SELECT COUNT(*) n, MIN(captured_at) oldest, MAX(captured_at) newest FROM request_records;"
 ```
 
+### 重新歸檔（改動解析邏輯後套用到舊資料）
+
+歸檔的去重鍵是 `source_file`，指紋相同就不會重讀。修正解析邏輯後要讓舊記錄套用新版，先刪掉那些記錄，採集器會在下個 5 秒週期用新邏輯重新讀取來源 log。
+
+```bash
+# 例：訊息為空且被截斷的記錄（早期版本從截斷的 body 解析失敗）
+sqlite3 "$DB" "DELETE FROM request_records WHERE messages_json='' AND truncated=1;"
+
+# 例：特定模型全部重來
+sqlite3 "$DB" "DELETE FROM request_records WHERE model='claude-opus-5';"
+```
+
+**前提是來源 log 還在。** 已被清理掉的 log 無法重新歸檔，那些記錄刪掉就永久消失。先確認：
+
+```bash
+sqlite3 "$DB" "SELECT COUNT(*) FROM request_records WHERE messages_json='' AND truncated=1;"
+ls "$BASE/oauth/logs"/*.log | wc -l
+```
+
 ### 控制成長速度
 
 兩個獨立的成長源，要分開設定：
 
 | 設定 | 位置 | 作用 |
 | --- | --- | --- |
-| 日誌檔案總容量上限 | 進階設定 | 核心 `logs/` 的上限，**預設 `0` = 不限制** |
+| 日誌檔案總容量上限 | 進階設定 | 核心自己的上限，**只算頂層 `.log`，不含 spill 子目錄**；預設 `0` = 不限制 |
+| **日誌目錄上限 MB** | **歸檔卡片** | **fork 自己的上限，遞迴計算含子目錄，只刪已歸檔的檔案；`0` = 交給核心** |
 | 資料庫上限 MB | 歸檔卡片 | `requests.db` 的上限 |
 | 保留天數 | 歸檔卡片 | 依時間清理 |
 | 单字段上限 KB | 歸檔卡片 | 單一欄位截斷點，直接決定每筆多大 |
