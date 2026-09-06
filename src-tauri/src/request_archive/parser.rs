@@ -252,10 +252,31 @@ fn enrich_from_request_body(parsed: &mut ParsedRequestLog) {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    if parsed.model.is_empty() {
+        // The Gemini native surface names the model in the URL instead of the body.
+        parsed.model = model_from_url(&parsed.url);
+    }
     parsed.stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
     parsed.system_prompt = extract_system_prompt(&body);
     parsed.messages_json = extract_messages(&body);
     parsed.tools_json = extract_tools(&body);
+}
+
+/// Recovers the model from Gemini-style paths such as
+/// `/v1beta/models/gemini-3-pro:generateContent`, where the model never appears
+/// in the request body.
+pub(crate) fn model_from_url(url: &str) -> String {
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let Some(rest) = path.split("/models/").nth(1) else {
+        return String::new();
+    };
+    let segment = rest.split('/').next().unwrap_or_default();
+    segment
+        .split(':')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 /// Extracts a JSON document from a payload that may carry a leading header
