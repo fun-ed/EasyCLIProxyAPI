@@ -535,6 +535,20 @@ models.dev 的分層計價（`tiers` / `context_over_200k`）不會匯入，因�
 
 `.app` 版與正式版共用 `~/Library/Application Support/com.cpa.gui`（auth 檔、config、`usage.db` 都同一份），但**不可同時執行**，兩者會搶 port 8317。
 
+### 10.1.1 儲存策略：訊息不重複儲存
+
+`messages_json` **不再寫入資料庫**，改在開啟詳情時從 `request_body` 即時解析（`parser::messages_from_payload`）。
+
+實測依據：117 筆記錄佔 717 MB，其中 `request_body` 336 MB、`messages_json` 327 MB —— **同一份對話存了兩次，佔全部的 92%**。改後約省一半。
+
+連帶影響：
+
+- 搜尋條件從 `messages_json LIKE` 改成 `request_body LIKE`，因為對話文字現在只存在後者
+- `detail_from_row` 會在 `messages_json` 為空時才解析，所以**舊資料仍然正常顯示**
+- 代價是每次開啟詳情多一次 JSON 解析（數 MB 等級，可接受）
+
+磁碟另一半是核心的 `logs/`（實測 828 MB），由 `logs-max-total-size-mb` 控制，**預設 `0` 代表不限制**。見 §10.2。
+
 ### 10.2 啟用歸檔的三個前提
 
 歸檔要出資料需要**三個條件同時成立**，缺一就是 0 筆：

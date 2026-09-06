@@ -426,7 +426,9 @@ fn ingest_file(
     let response_body = cap(&parsed.response_body);
     let websocket_timeline = cap(&parsed.websocket_timeline);
     let system_prompt = cap(&parsed.system_prompt);
-    let messages_json = cap(&parsed.messages_json);
+    // Messages are re-derived from `request_body` on read. Storing both kept two
+    // copies of the same conversation and accounted for most of the database.
+    let messages_json = String::new();
     let tools_json = cap(&parsed.tools_json);
     let api_error_text = cap(&parsed.api_error_text);
 
@@ -876,7 +878,9 @@ fn build_filters(query: &RequestArchiveQuery) -> (String, Vec<SqlValue>) {
     }
     if let Some(search) = query.search.as_ref().filter(|value| !value.is_empty()) {
         clauses.push(
-            "(system_prompt LIKE ? OR messages_json LIKE ? OR url LIKE ? OR request_id LIKE ? OR model LIKE ?)"
+            // request_body replaces messages_json here: it is the column that now
+            // holds the conversation text.
+            "(system_prompt LIKE ? OR request_body LIKE ? OR url LIKE ? OR request_id LIKE ? OR model LIKE ?)"
                 .to_string(),
         );
         let pattern = format!("%{search}%");
@@ -1002,7 +1006,17 @@ fn detail_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RequestArchiveDe
         downstream_transport: row.get(21)?,
         upstream_transport: row.get(22)?,
         system_prompt: row.get(23)?,
-        messages_json: row.get(24)?,
+        // Rows written before messages stopped being stored still carry their
+        // own copy, so fall back to it instead of re-parsing needlessly.
+        messages_json: {
+            let stored: String = row.get(24)?;
+            if stored.is_empty() {
+                let body: String = row.get(30)?;
+                parser::messages_from_payload(&body)
+            } else {
+                stored
+            }
+        },
         tools_json: row.get(25)?,
         usage_json: row.get(26)?,
         reasoning_tokens: row.get(27)?,
@@ -1026,7 +1040,7 @@ fn payloads_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RequestArchive
 
 const DETAIL_COLUMNS: &str = "core_version, downstream_transport, upstream_transport, \
      system_prompt, messages_json, tools_json, usage_json, reasoning_tokens, cache_read_tokens, \
-     cache_creation_tokens";
+     cache_creation_tokens, request_body";
 
 const PAYLOAD_COLUMNS: &str = "request_headers_json, response_headers_json, request_body, \
      api_request, api_response, response_body, api_error_text, websocket_timeline";
@@ -1168,5 +1182,9 @@ pub(crate) mod testing {
 
     pub(crate) fn model_from_url(url: &str) -> String {
         super::parser::model_from_url(url)
+    }
+
+    pub(crate) fn messages_from_payload(payload: &str) -> String {
+        super::parser::messages_from_payload(payload)
     }
 }
