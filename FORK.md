@@ -16,9 +16,9 @@
 | --- | --- |
 | Upstream | `router-for-me/EasyCLIProxyAPI`（目前就是 `origin`） |
 | 工作分支 | `feature/request-archive` |
-| Fork 基底 | `8575f4e` — `fix(version): update cpa-gui version to 0.2.72` |
+| Fork 基底 | `584c63b` — `fix(version): update cpa-gui version to 0.2.73` |
 | Git 身分（repo local） | `fun-ed <git-ed@runbox.no>` |
-| 核心版本綁定 | `core-version.txt` = `7.2.149` |
+| 核心版本綁定 | `core-version.txt` = `7.2.151` |
 | 產出執行檔 | `bin-work/EasyCLIProxyAPI-fork` |
 | 資料目錄 | `~/Library/Application Support/com.cpa.gui`（**與官方版共用**） |
 
@@ -28,9 +28,9 @@
 
 | Commit | 內容 | 可否單獨拿掉 |
 | --- | --- | --- |
-| `afa8120` | `feat(usage)`：完整請求歸檔（request archive） | 可 |
-| `630fa48` | `chore(fork)`：改名為 `EasyCLIProxyAPI-fork` | 可 |
-| `acaedfa` | `feat(fork)`：`CPA_FORK_ARCHIVE` 總開關 | 可 |
+| `07f2ae4` | `feat(usage)`：完整請求歸檔（request archive） | 可 |
+| `5c5004f` | `chore(fork)`：改名為 `EasyCLIProxyAPI-fork` | 可 |
+| `ddefcbf` | `feat(fork)`：`CPA_FORK_ARCHIVE` 總開關 | 可 |
 
 ## 1.1 緊急停用（kill switch）
 
@@ -71,6 +71,7 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 │  src/i18n/locales/requestArchive.ts                    │
 │  src/styles/requestArchive.css                         │
 │  tests/requestArchive.test.ts                          │
+│  scripts/fork-sync-and-build.sh                        │
 │  FORK.md                                               │
 └────────────────────────────────────────────────────────┘
 ┌─ B 區：整合點（rebase 時可能衝突，共 58 行）──────────┐
@@ -212,36 +213,68 @@ export const jaOverrides = {
 
 ## 6. Sync SOP
 
+### 6.1 一行指令（平常用這個）
+
+```bash
+cd <workspace 根目錄>
+./sync-and-build.sh
+```
+
+實體檔案是 `EasyCLIProxyAPI/scripts/fork-sync-and-build.sh`（隨 repo 版控，換機不會遺失），workspace 根目錄的 `sync-and-build.sh` 只是指過去的 symlink。兩個入口行為相同。
+
+它會依序做：
+
+| 步驟 | 內容 | 安全機制 |
+| --- | --- | --- |
+| 1 | `CLIProxyAPI` fetch + **fast-forward only** | 偵測到任何本機 commit 就中止（守護 §4 不變式「核心零 patch」） |
+| 2 | `Cli-Proxy-API-Management-Center` fetch + fast-forward only | 同上 |
+| 3 | `EasyCLIProxyAPI` fetch + `rebase origin/main` | 衝突時停下並印出 §3 的對照指引，**絕不自動解衝突** |
+| 4 | 核心 `go build` 編譯檢查 + gofmt 檢查 | 只警告不阻擋 gofmt |
+| 5 | 面板 `bun run build` → 安裝到 `<core install dir>/static/management.html` | 內容相同則跳過複製 |
+| 6 | 把核心 config 的 `disable-auto-update-panel` 釘成 `true` | 否則核心每 3 小時會用 GitHub 版覆蓋你的本機 build |
+| 7 | fork `bun install` / `bun run check` / `bun test` / `cargo test` | i18n 既有失敗只警告；cargo 失敗會重試一次以排除 §8 的 flake |
+| 8 | fork `./build.sh` → `bin-work/EasyCLIProxyAPI-fork` | — |
+
+所有 repo 在動之前都會檢查工作區乾淨，有未提交改動就中止。
+
+常用選項：
+
+```bash
+./sync-and-build.sh --no-sync      # 不動 git，只重建
+./sync-and-build.sh --no-package   # 跑完測試但跳過慢的 release build
+./sync-and-build.sh --skip-core --skip-panel   # 只處理 fork
+./sync-and-build.sh --help
+```
+
+環境變數：`FORK_BRANCH`（預設 `feature/request-archive`）、`CPA_CORE_INSTALL_DIR`。
+
+### 6.2 rebase 衝突時
+
+腳本會停在衝突並印出指引。照 §3 的 patch inventory 解完後：
+
+```bash
+git -C EasyCLIProxyAPI add <file>
+git -C EasyCLIProxyAPI rebase --continue
+./sync-and-build.sh --no-sync      # 接續跑完建置與驗證
+```
+
+放棄：`git -C EasyCLIProxyAPI rebase --abort`
+
+### 6.3 手動流程（腳本壞掉時的後備）
+
 ```bash
 cd EasyCLIProxyAPI
-
-# 0. 確認乾淨
 git status --short
-
-# 1. 取得 upstream
 git fetch origin
-
-# 2. rebase
 git checkout feature/request-archive
 git rebase origin/main
-#    衝突只會出現在 §3 的清單裡，照表解
-#    git add <file> && git rebase --continue
-
-# 3. 核心版本是否跟著升？
-cat core-version.txt        # upstream 若升版，這裡會變
-
-# 4. 驗證（順序照下面跑，快的先跑）
+cat core-version.txt                 # upstream 若升版，這裡會變
 bun install
-bun run check                       # tsc --noEmit
-bun test                            # 預期 156 pass / 1 既有失敗（見 §8）
-bun run build                       # 確認 vite 能 bundle（含抽出的 CSS）
-cd src-tauri && cargo test && cd ..  # 預期 332 passed / 0 failed
-
-# 5. §5 隱性依賴抽查（見下方 checklist）
-
-# 6. 編譯與實測
-./build.sh
-./run.sh
+bun run check
+bun test
+bun run build
+cd src-tauri && cargo test && cd ..
+./build.sh && ./run.sh
 ```
 
 ### Sync 後 checklist
@@ -300,7 +333,8 @@ git push -u origin feature/request-archive
 
 | 問題 | 狀態 |
 | --- | --- |
-| `tests/i18n.test.ts` 失敗：`jaOverrides` 比 `zhCN` 少 50 個 key | **upstream 既有問題**，非本 fork 造成。fork 前後缺口都是 50，且沒有任何 `usage.archive.*` 在缺漏清單裡。**不要為了讓它綠掉而亂補 key**，先確認缺口數字仍是 50 即可 |
+| `tests/i18n.test.ts` 失敗：`jaOverrides` 比 `zhCN` 少 50 個 key | **upstream 既有問題**，非本 fork 造成。fork 前後缺口都是 50，且沒有任何 `usage.archive.*` 在缺漏清單裡。**不要為了讓它綠掉而亂補 key**，先確認缺口數字仍是 50 即可。sync 腳本會辨識這一筆並只發警告 |
+| `tests::instance_lock::app_instance_guard_rejects_a_second_copy_and_releases_on_drop` 偶發失敗 | **upstream 既有 flake**。該測試用固定目錄 `agent_test_home("instance-lock")`，全套並行時偶爾輸給 OS 檔案鎖的釋放時序。單獨執行必過；連跑三次全套也全過。sync 腳本失敗時會自動重試一次 |
 | 歸檔功能未做端到端實測 | 解析器正確性目前只由依 Go writer 原始碼建構的合成樣本證明。建議至少實測一筆 Claude 形狀、一筆 OpenAI 形狀的請求 |
 | `usage_events.request_id` 是否在所有 provider 路徑都與 log 檔名 id 一致 | 未逐一驗證 |
 | Antigravity / Codex WebSocket timeline 的 usage 擷取 | 靠泛用遞迴搜尋 `usage` / `usageMetadata`，可能不完整 |
