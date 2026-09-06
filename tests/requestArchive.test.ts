@@ -5,6 +5,8 @@ import {
   formatArchiveJson,
   parseArchiveMessages,
   parseArchiveToolNames,
+  requestArchiveSettingsDraft,
+  requestArchiveSettingsFromDraft,
 } from '../src/services/requestArchive';
 
 describe('archiveReadiness', () => {
@@ -169,5 +171,39 @@ describe('archiveReadiness commercial mode', () => {
     expect(
       archiveReadiness({ commercialMode: false, settingsEnabled: true, requestLogEnabled: false }),
     ).toBe('awaiting-request-log');
+  });
+});
+
+describe('request archive settings draft', () => {
+  it('keeps every required setting when the database limit is edited', () => {
+    const draft = requestArchiveSettingsDraft({
+      settingsEnabled: true,
+      retentionDays: 30,
+      maxTotalMb: 5120,
+      maxBodyKb: 4096,
+      logsMaxMb: 1024,
+    });
+    draft.maxTotalMb = '6144';
+
+    expect(requestArchiveSettingsFromDraft(draft)).toEqual({
+      enabled: true,
+      retentionDays: 30,
+      maxTotalMb: 6144,
+      maxBodyKb: 4096,
+      logsMaxMb: 1024,
+    });
+  });
+
+  it('rejects an incomplete numeric field instead of submitting a partial payload', () => {
+    const draft = requestArchiveSettingsDraft({
+      settingsEnabled: true,
+      retentionDays: 30,
+      maxTotalMb: 5120,
+      maxBodyKb: 4096,
+      logsMaxMb: 1024,
+    });
+    draft.logsMaxMb = '';
+
+    expect(requestArchiveSettingsFromDraft(draft)).toBeNull();
   });
 });

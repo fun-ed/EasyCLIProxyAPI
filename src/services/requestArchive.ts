@@ -9,7 +9,7 @@ export type RequestArchiveSettings = {
   logsMaxMb: number;
 };
 
-export type RequestArchiveStatus = RequestArchiveSettings & {
+export type RequestArchiveStatus = Omit<RequestArchiveSettings, 'enabled'> & {
   /** True when the CPA_FORK_ARCHIVE kill switch turned the whole fork feature off. */
   forkDisabled: boolean;
   /** True when the core's commercial mode is suppressing request logging entirely. */
@@ -108,6 +108,61 @@ export const requestArchiveApi = {
   compact: () => invoke<ArchiveMaintenanceResult>('compact_request_archive'),
   purgeLogs: () => invoke<ArchiveMaintenanceResult>('purge_ingested_request_logs'),
 };
+
+export type RequestArchiveSettingsDraft = {
+  enabled: boolean;
+  retentionDays: string;
+  maxTotalMb: string;
+  maxBodyKb: string;
+  logsMaxMb: string;
+};
+
+export function requestArchiveSettingsDraft(
+  status: Pick<
+    RequestArchiveStatus,
+    'settingsEnabled' | 'retentionDays' | 'maxTotalMb' | 'maxBodyKb' | 'logsMaxMb'
+  >,
+): RequestArchiveSettingsDraft {
+  return {
+    enabled: status.settingsEnabled,
+    retentionDays: String(status.retentionDays),
+    maxTotalMb: String(status.maxTotalMb),
+    maxBodyKb: String(status.maxBodyKb),
+    logsMaxMb: String(status.logsMaxMb),
+  };
+}
+
+function parseArchiveSetting(value: string, minimum: number, maximum: number): number | null {
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
+}
+
+export function requestArchiveSettingsFromDraft(
+  draft: RequestArchiveSettingsDraft,
+): RequestArchiveSettings | null {
+  const retentionDays = parseArchiveSetting(draft.retentionDays, 0, 3_650);
+  const maxTotalMb = parseArchiveSetting(draft.maxTotalMb, 0, 1_024 * 1_024);
+  const maxBodyKb = parseArchiveSetting(draft.maxBodyKb, 16, 1_024 * 64);
+  const logsMaxMb = parseArchiveSetting(draft.logsMaxMb, 0, 1_024 * 1_024);
+  if (
+    retentionDays === null ||
+    maxTotalMb === null ||
+    maxBodyKb === null ||
+    logsMaxMb === null
+  ) {
+    return null;
+  }
+  return {
+    enabled: draft.enabled,
+    retentionDays,
+    maxTotalMb,
+    maxBodyKb,
+    logsMaxMb,
+  };
+}
 
 /** Outcome of a manual maintenance action. */
 export type ArchiveMaintenanceResult = {

@@ -1,6 +1,8 @@
 use super::*;
 
-use crate::request_archive::{testing, RequestArchiveQuery, RequestArchiveSettings};
+use crate::request_archive::{
+    testing, RequestArchiveQuery, RequestArchiveSettings, RequestArchiveStatus,
+};
 
 fn archive_test_root(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!(
@@ -82,6 +84,17 @@ fn parses_core_request_log_into_structured_fields() {
     assert_eq!(parsed.usage.cache_read_tokens, 267_409);
     assert_eq!(parsed.usage.cache_creation_tokens, 1_200);
     assert_eq!(parsed.usage.total_tokens, 269_965);
+}
+
+#[test]
+fn request_archive_status_serializes_logs_cap_for_settings_save() {
+    let status = RequestArchiveStatus {
+        logs_max_mb: 256,
+        ..RequestArchiveStatus::default()
+    };
+
+    let payload = serde_json::to_value(status).unwrap();
+    assert_eq!(payload["logsMaxMb"], 256);
 }
 
 #[test]
