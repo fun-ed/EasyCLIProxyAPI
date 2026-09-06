@@ -359,6 +359,19 @@ fn extract_system_prompt(body: &Map<String, Value>) -> String {
     String::new()
 }
 
+/// Re-derives the message list from a stored raw request body.
+///
+/// Messages are no longer persisted alongside the body they come from: the two
+/// held near-identical content and together accounted for most of the archive's
+/// size. Reconstructing them when a record is opened costs one JSON parse and
+/// halves the database.
+pub(crate) fn messages_from_payload(payload: &str) -> String {
+    match parse_embedded_json(payload) {
+        Some(Value::Object(body)) => extract_messages(&body),
+        _ => String::new(),
+    }
+}
+
 fn extract_messages(body: &Map<String, Value>) -> String {
     for key in ["messages", "contents", "input"] {
         if let Some(value) = body.get(key) {
