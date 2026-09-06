@@ -10,6 +10,7 @@ import {
   parseArchiveToolNames,
   requestArchiveApi,
   type RequestArchiveDetail,
+  type RequestArchivePayloads,
   type RequestArchiveStatus,
 } from '../services/requestArchive';
 import '../styles/requestArchive.css';
@@ -264,6 +265,8 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
   const { t } = useI18n();
   const available = useRequestArchiveAvailable();
   const [detail, setDetail] = useState<RequestArchiveDetail | null>(null);
+  const [payloads, setPayloads] = useState<RequestArchivePayloads | null>(null);
+  const [payloadsLoading, setPayloadsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [section, setSection] = useState<DetailSection>('messages');
@@ -295,6 +298,28 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
     [detail],
   );
   const toolNames = useMemo(() => (detail ? parseArchiveToolNames(detail.toolsJson) : []), [detail]);
+
+  // Raw payloads are several megabytes per record, so they are only fetched once
+  // the reader actually opens the raw tab, and only once per record.
+  useEffect(() => {
+    if (section !== 'raw' || !detail || payloads || payloadsLoading) {
+      return;
+    }
+    let active = true;
+    setPayloadsLoading(true);
+    requestArchiveApi
+      .payloads(detail.id)
+      .then((result) => active && setPayloads(result))
+      .catch((payloadError) => active && setError(String(payloadError)))
+      .finally(() => active && setPayloadsLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [section, detail, payloads, payloadsLoading]);
+
+  useEffect(() => {
+    setPayloads(null);
+  }, [requestId]);
 
   if (available === false) {
     return null;
@@ -402,16 +427,24 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
           ) : null}
 
           {detail && section === 'raw' ? (
-            <>
-              <h3 className="usage-archive-subhead">{t('usage.archive.rawRequest')}</h3>
-              <pre className="usage-archive-content">
-                {formatArchiveJson(detail.apiRequest || detail.requestBody) || t('usage.archive.empty')}
-              </pre>
-              <h3 className="usage-archive-subhead">{t('usage.archive.rawResponse')}</h3>
-              <pre className="usage-archive-content">
-                {detail.apiResponse || detail.responseBody || detail.apiErrorText || t('usage.archive.empty')}
-              </pre>
-            </>
+            payloadsLoading || !payloads ? (
+              <p className="usage-archive-placeholder">{t('usage.archive.loading')}</p>
+            ) : (
+              <>
+                <h3 className="usage-archive-subhead">{t('usage.archive.rawRequest')}</h3>
+                <pre className="usage-archive-content">
+                  {formatArchiveJson(payloads.apiRequest || payloads.requestBody) ||
+                    t('usage.archive.empty')}
+                </pre>
+                <h3 className="usage-archive-subhead">{t('usage.archive.rawResponse')}</h3>
+                <pre className="usage-archive-content">
+                  {payloads.apiResponse ||
+                    payloads.responseBody ||
+                    payloads.apiErrorText ||
+                    t('usage.archive.empty')}
+                </pre>
+              </>
+            )
           ) : null}
         </div>
       </section>

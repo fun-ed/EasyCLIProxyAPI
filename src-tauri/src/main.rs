@@ -2707,6 +2707,7 @@ fn main() {
             request_archive::query_request_archive_records,
             request_archive::get_request_archive_record,
             request_archive::get_request_archive_record_by_request_id,
+            request_archive::get_request_archive_payloads,
             request_archive::get_request_archive_models,
             request_archive::clear_request_archive,
             set_core_plugins_enabled,

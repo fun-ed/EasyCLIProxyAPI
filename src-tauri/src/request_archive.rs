@@ -27,7 +27,7 @@ const MAX_FILES_PER_SCAN: usize = 200;
 
 const DEFAULT_RETENTION_DAYS: u32 = 30;
 const DEFAULT_MAX_TOTAL_MB: u32 = 5_120;
-const DEFAULT_MAX_BODY_KB: u32 = 1_024;
+const DEFAULT_MAX_BODY_KB: u32 = 4_096;
 
 const SETTING_ENABLED: &str = "enabled";
 const SETTING_RETENTION_DAYS: &str = "retention_days";
@@ -799,6 +799,16 @@ pub(crate) struct RequestArchiveDetail {
     pub reasoning_tokens: i64,
     pub cache_read_tokens: i64,
     pub cache_creation_tokens: i64,
+}
+
+/// Raw transcript sections, fetched separately.
+///
+/// A single Claude Code record carries several megabytes of raw payload, so
+/// shipping it with every detail lookup made opening the dialog slow even when
+/// the reader never left the parsed tabs.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RequestArchivePayloads {
     pub request_headers_json: String,
     pub response_headers_json: String,
     pub request_body: String,
@@ -998,20 +1008,27 @@ fn detail_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RequestArchiveDe
         reasoning_tokens: row.get(27)?,
         cache_read_tokens: row.get(28)?,
         cache_creation_tokens: row.get(29)?,
-        request_headers_json: row.get(30)?,
-        response_headers_json: row.get(31)?,
-        request_body: row.get(32)?,
-        api_request: row.get(33)?,
-        api_response: row.get(34)?,
-        response_body: row.get(35)?,
-        api_error_text: row.get(36)?,
-        websocket_timeline: row.get(37)?,
+    })
+}
+
+fn payloads_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RequestArchivePayloads> {
+    Ok(RequestArchivePayloads {
+        request_headers_json: row.get(0)?,
+        response_headers_json: row.get(1)?,
+        request_body: row.get(2)?,
+        api_request: row.get(3)?,
+        api_response: row.get(4)?,
+        response_body: row.get(5)?,
+        api_error_text: row.get(6)?,
+        websocket_timeline: row.get(7)?,
     })
 }
 
 const DETAIL_COLUMNS: &str = "core_version, downstream_transport, upstream_transport, \
      system_prompt, messages_json, tools_json, usage_json, reasoning_tokens, cache_read_tokens, \
-     cache_creation_tokens, request_headers_json, response_headers_json, request_body, \
+     cache_creation_tokens";
+
+const PAYLOAD_COLUMNS: &str = "request_headers_json, response_headers_json, request_body, \
      api_request, api_response, response_body, api_error_text, websocket_timeline";
 
 #[tauri::command]
@@ -1046,6 +1063,21 @@ pub(crate) fn get_request_archive_record_by_request_id(
         )
         .optional()
         .map_err(|error| format!("读取请求归档详情失败: {error}"))
+}
+
+#[tauri::command]
+pub(crate) fn get_request_archive_payloads(
+    id: i64,
+) -> Result<Option<RequestArchivePayloads>, String> {
+    let connection = open_archive_database()?;
+    connection
+        .query_row(
+            &format!("SELECT {PAYLOAD_COLUMNS} FROM request_records WHERE id = ?1"),
+            params![id],
+            payloads_from_row,
+        )
+        .optional()
+        .map_err(|error| format!("读取请求原始报文失败: {error}"))
 }
 
 #[tauri::command]
