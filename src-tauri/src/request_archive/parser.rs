@@ -359,6 +359,45 @@ fn extract_system_prompt(body: &Map<String, Value>) -> String {
     String::new()
 }
 
+/// Trims a message array to a byte budget by dropping whole elements.
+///
+/// Cutting the serialised form at a byte offset would leave invalid JSON that no
+/// reader can recover, which is exactly how a truncated conversation ends up
+/// displaying as empty. Keeping the most recent complete messages preserves the
+/// current turn, which is the part worth reading, and always parses.
+///
+/// Returns the trimmed JSON and whether anything was dropped.
+pub(crate) fn truncate_messages_json(messages_json: &str, max_bytes: usize) -> (String, bool) {
+    if messages_json.len() <= max_bytes {
+        return (messages_json.to_string(), false);
+    }
+    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(messages_json) else {
+        return (String::new(), true);
+    };
+
+    let mut kept = Vec::new();
+    let mut used = 2; // the enclosing brackets
+    for item in items.iter().rev() {
+        let encoded = item.to_string();
+        let cost = encoded.len() + 1; // the separating comma
+        if used + cost > max_bytes {
+            break;
+        }
+        used += cost;
+        kept.push(item.clone());
+    }
+    kept.reverse();
+
+    if kept.is_empty() {
+        return (String::new(), true);
+    }
+    let dropped = kept.len() < items.len();
+    match serde_json::to_string(&Value::Array(kept)) {
+        Ok(text) => (text, dropped),
+        Err(_) => (String::new(), true),
+    }
+}
+
 /// Re-derives the message list from a stored raw request body.
 ///
 /// Messages are no longer persisted alongside the body they come from: the two
