@@ -10,6 +10,8 @@ export const requestArchiveZhCN = {
   'usage.archive.requestLogRequired': '核心的 request-log 未开启，归档不会产生任何记录。',
   'usage.archive.enableRequestLog': '立即开启 request-log',
   'usage.archive.requestLogSwitch': '开启核心 request-log（归档的数据来源）',
+  'usage.archive.commercialModeBlocked':
+    '内核的商用模式（commercial-mode）已开启，它会完全跳过请求日志中间件，request-log 不会生效。请到「高级设置」关闭商用模式并重启内核。',
   'usage.archive.retentionDays': '保留天数（0 表示不限制）',
   'usage.archive.maxTotalMb': '数据库上限 MB（0 表示不限制）',
   'usage.archive.maxBodyKb': '单字段上限 KB',
@@ -49,6 +51,8 @@ export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
     'The core has request-log disabled, so the archive will not collect anything.',
   'usage.archive.enableRequestLog': 'Enable request-log now',
   'usage.archive.requestLogSwitch': 'Enable the core request-log (the archive data source)',
+  'usage.archive.commercialModeBlocked':
+    'The core runs in commercial mode, which skips the request logging middleware entirely, so request-log has no effect. Turn commercial mode off in Advanced Settings and restart the core.',
   'usage.archive.retentionDays': 'Retention days (0 means unlimited)',
   'usage.archive.maxTotalMb': 'Database cap in MB (0 means unlimited)',
   'usage.archive.maxBodyKb': 'Per-field cap in KB',
@@ -88,6 +92,8 @@ export const requestArchiveJa: Record<RequestArchiveMessageKey, string> = {
     'コアの request-log が無効なため、アーカイブには何も記録されません。',
   'usage.archive.enableRequestLog': 'request-log を今すぐ有効化',
   'usage.archive.requestLogSwitch': 'コアの request-log を有効化（アーカイブのデータ元）',
+  'usage.archive.commercialModeBlocked':
+    'コアが商用モードで動作しているため、リクエストログのミドルウェアが登録されず request-log は機能しません。詳細設定で商用モードを無効にし、コアを再起動してください。',
   'usage.archive.retentionDays': '保持日数（0 は無制限）',
   'usage.archive.maxTotalMb': 'データベース上限 MB（0 は無制限）',
   'usage.archive.maxBodyKb': 'フィールドごとの上限 KB',
