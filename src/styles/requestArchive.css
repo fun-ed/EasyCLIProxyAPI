@@ -392,3 +392,13 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+.usage-archive-notice {
+  border: 1px solid var(--theme-2f6b3f);
+  border-radius: 10px;
+  color: var(--theme-2f6b3f);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  padding: 11px 14px;
+}
