@@ -239,7 +239,21 @@ ls -lhS "$BASE/oauth/logs" | head -5
 
 參考值：改用即時解析後約 **3.5 MB/筆**（先前重複儲存訊息時是 6.1 MB）。
 
-### 清理
+### 清理（UI 優先，不用關 app）
+
+歸檔卡片下方有三顆按鈕，**這是首選做法**，app 執行中就能操作：
+
+| 按鈕 | 作用 | 安全性 |
+| --- | --- | --- |
+| **压缩数据库** | WAL checkpoint + `VACUUM`，回收已刪除列佔用的空間 | 不影響資料 |
+| **清理已归档日志** | 刪除**已經歸檔**的 `v1-*.log`，以及 30 分鐘前的殘留暫存目錄 | **未歸檔的檔案會保留並計入「跳過」** |
+| **清空归档** | 清空 `request_records` 並 `VACUUM` | 設定保留、原始 log 不動 |
+
+完成後會顯示「清理 N 項，釋放 X，跳過未歸檔 M 項」。
+
+「清理已归档日志」永不觸碰 `main.log` 與 `response-body-*`，判定規則與掃描器**共用同一個函式**，不會出現「掃描不認、清理卻刪」的矛盾。
+
+### 清理（命令列，UI 壞掉時的後備）
 
 **務必先關掉 app**，否則會與執行中的連線衝突：
 
@@ -257,6 +271,24 @@ find "$BASE/oauth/logs" \( -name "v1-*.log" -o -name "v1beta-*.log" -o -name "re
 ```
 
 > ⚠️ **只清歸檔而不清 log，重啟後會全部長回來** —— 去重鍵是 `source_file`，log 檔還在就會被重新歸檔。要真的縮小就兩個都清。
+
+**刪除列不會讓檔案變小。** SQLite 把釋出的頁面掛在 free list 上，檔案維持在歷史高點，必須 `VACUUM` 重建才會縮小：
+
+```bash
+sqlite3 "$DB" "VACUUM;"     # 或按 UI 的「压缩数据库」
+```
+
+清空歸檔後看到「0 筆記錄」卻仍佔用數百 MB，就是這個原因。
+
+### 清掉歸檔後舊請求點不開是正常的
+
+事件列表讀 `usage-records/usage.db`（核心的用量頻道），歸檔讀 `request-records/requests.db`。**兩者完全獨立**，所以清掉歸檔後，事件列表照樣列出 1400 筆舊請求，但點進去會顯示找不到歸檔內容。
+
+歸檔的實際涵蓋範圍：
+
+```bash
+sqlite3 -header -column "$DB" "SELECT COUNT(*) n, MIN(captured_at) oldest, MAX(captured_at) newest FROM request_records;"
+```
 
 ### 控制成長速度
 

@@ -141,9 +141,10 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 │  scripts/fork-sync-and-build.sh                        │
 │  FORK.md  AGENTS.md  README.fork.md                    │
 └────────────────────────────────────────────────────────┘
-┌─ B 區：整合點（rebase 時可能衝突，共 58 行）──────────┐
-│  src-tauri/src/main.rs                    14 行        │
-│  src/pages/UsageRecordsPage.tsx           25 行        │
+┌─ B 區：整合點（rebase 時可能衝突，共 116 行）──────────┐
+│  src-tauri/src/main.rs                    18 行        │
+│  src-tauri/src/usage.rs                   32 行        │
+│  src/pages/UsageRecordsPage.tsx           23 行        │
 │  src/i18n/locales/zh-CN.ts                 3 行        │
 │  src/i18n/locales/en.ts                    2 行        │
 │  src/i18n/ja.ts                            2 行        │
@@ -600,7 +601,19 @@ if !cfg.CommercialMode {
 | 啟用路徑 | 用量統計 → 資料管理 → 完整請求歸檔 → 勾選 + 「立即開啟 request-log」 |
 | 查看路徑 | 用量統計 → 事件列表 → 點任一列 |
 
-Tauri 命令：`get_request_archive_status` / `save_request_archive_settings` / `query_request_archive_records` / `get_request_archive_record` / `get_request_archive_record_by_request_id` / `get_request_archive_models` / `clear_request_archive`
+Tauri 命令（12 個）：
+
+| 命令 | 用途 |
+| --- | --- |
+| `get_request_archive_status` | 設定 + 統計 + 資料庫與日誌佔用 + 三個前提的狀態 |
+| `save_request_archive_settings` | 寫入四項設定 |
+| `query_request_archive_records` | 分頁查詢摘要 |
+| `get_request_archive_record` / `..._by_request_id` | 取單筆詳情（不含原始報文） |
+| `get_request_archive_payloads` | 原始報文，點開該分頁時才抓 |
+| `get_request_archive_models` | 模型下拉清單 |
+| `compact_request_archive` | WAL checkpoint + `VACUUM` |
+| `purge_ingested_request_logs` | 刪除已歸檔的來源 log 與殘留暫存目錄 |
+| `clear_request_archive` | 清空歸檔 |
 
 直接查 DB：
 
@@ -609,6 +622,16 @@ sqlite3 "$HOME/Library/Application Support/com.cpa.gui/request-records/requests.
   "SELECT captured_at, model, http_status, total_tokens, request_id
      FROM request_records ORDER BY captured_at_ms DESC LIMIT 20;"
 ```
+
+---
+
+### 10.4 兩個曾造成資料遺失的陷阱
+
+**`PRAGMA` 會回傳結果列。** `PRAGMA wal_checkpoint(TRUNCATE)` 用 `execute()` 呼叫會失敗（`Execute returned results`），必須用 `query_row`。這個錯誤在 `apply_retention` 裡被 `?` 提前中止，導致後面的 `VACUUM` 永遠沒執行。
+
+**不要用檔案大小當刪除迴圈的條件。** SQLite 刪除列後頁面只是進入 free list，檔案大小不變，要 `VACUUM` 才會縮小。原本的容量清理迴圈量的是檔案大小，於是條件恆為真，每輪再刪 200 筆 —— 實際把一個 135 筆的歸檔刪光，檔案仍停在 473 MB。
+
+現在改量**存活頁數**：`(page_count - freelist_count) × page_size`，那才是會隨刪除而下降的數字。回歸測試 `size_retention_stops_at_the_limit_instead_of_emptying_the_archive` 會塞 12 筆、設寬鬆上限，斷言一筆都不能被刪。
 
 ---
 
