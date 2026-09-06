@@ -1,108 +1,384 @@
+/*
+ * Fork-local styling for the request archive.
+ *
+ * Everything here uses the shared theme variables so both the light and dark
+ * palettes defined in styles.css apply without a second set of overrides.
+ */
+
 .usage-event-row-openable {
   cursor: pointer;
 }
 
-.usage-archive-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  margin: 12px 0 0;
-}
+/* ---------------------------------------------------------------- settings */
 
-.usage-archive-stats div {
+.usage-archive-switches {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.usage-archive-switch {
+  align-items: center;
+  border: 1px solid var(--theme-e3e1db);
+  border-radius: 10px;
+  background: var(--theme-faf9f5);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 11px 14px;
+}
+
+.usage-archive-switch:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.usage-archive-switch input {
+  accent-color: var(--theme-2f6b3f);
+  cursor: inherit;
+  flex: none;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.usage-archive-switch span {
+  color: var(--theme-2d2a26);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.usage-archive-alert {
+  border: 1px solid var(--theme-9f2d20);
+  border-radius: 10px;
+  color: var(--theme-9f2d20);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  padding: 11px 14px;
+}
+
+.usage-archive-fields {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-top: 18px;
+}
+
+.usage-archive-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.usage-archive-fields label > span {
+  color: var(--theme-7a746c);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.usage-archive-fields input {
+  border: 1px solid var(--theme-d5d2cb);
+  border-radius: 8px;
+  background: var(--theme-fffdf8);
+  color: var(--theme-2d2a26);
+  font-size: 14px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.usage-archive-fields input:disabled {
+  opacity: 0.55;
+}
+
+.usage-archive-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 20px 0 0;
+}
+
+.usage-archive-stats > div {
+  border: 1px solid var(--theme-e3e1db);
+  border-radius: 10px;
+  background: var(--theme-faf9f5);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
 }
 
 .usage-archive-stats dt {
+  color: var(--theme-7a746c);
   font-size: 12px;
-  opacity: 0.7;
 }
 
 .usage-archive-stats dd {
+  color: var(--theme-2d2a26);
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
-.usage-archive-path {
+.usage-archive-paths {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.usage-archive-paths p {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.usage-archive-paths span {
+  color: var(--theme-7a746c);
+  flex: none;
   font-size: 12px;
-  margin: 8px 0 0;
-  opacity: 0.75;
+}
+
+.usage-archive-paths code {
+  color: var(--theme-5f5a53);
+  font-size: 12px;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .usage-archive-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 20px;
 }
+
+.usage-archive-actions button {
+  align-items: center;
+  border: 1px solid var(--theme-d5d2cb);
+  border-radius: 9px;
+  background: var(--theme-fffdf8);
+  color: var(--theme-2d2a26);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  padding: 9px 15px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.usage-archive-actions button:hover:not(:disabled) {
+  background: var(--theme-f4f1ea);
+  border-color: var(--theme-8a847c);
+}
+
+.usage-archive-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.usage-archive-actions .usage-archive-danger {
+  border-color: var(--theme-9f2d20);
+  color: var(--theme-9f2d20);
+}
+
+.usage-archive-actions .usage-archive-danger:hover:not(:disabled) {
+  background: var(--theme-9f2d20);
+  border-color: var(--theme-9f2d20);
+  color: var(--theme-fffdf8);
+}
+
+/* ------------------------------------------------------------------ dialog */
 
 .usage-archive-dialog {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 86vh;
-  max-width: 960px;
-  overflow: auto;
-  width: 92vw;
+  gap: 14px;
+  height: 88vh;
+  max-width: 1100px;
+  /* The body scrolls, not the shell, so the header and tabs stay reachable. */
+  overflow: hidden;
+  width: min(1100px, 94vw);
 }
 
 .usage-archive-dialog-header {
   align-items: center;
   display: flex;
+  flex: none;
+  gap: 16px;
   justify-content: space-between;
 }
 
-.usage-archive-meta {
-  font-size: 12px;
+.usage-archive-dialog-header h2 {
+  font-size: 17px;
   margin: 0;
-  opacity: 0.8;
+}
+
+.usage-archive-close {
+  align-items: center;
+  border: 1px solid var(--theme-d5d2cb);
+  border-radius: 8px;
+  background: var(--theme-fffdf8);
+  color: var(--theme-2d2a26);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.usage-archive-close:hover {
+  background: var(--theme-f4f1ea);
+}
+
+.usage-archive-meta {
+  color: var(--theme-7a746c);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.usage-archive-meta > span {
   overflow-wrap: anywhere;
 }
 
+.usage-archive-truncated {
+  border: 1px solid var(--theme-9f2d20);
+  border-radius: 999px;
+  color: var(--theme-9f2d20);
+  padding: 1px 9px;
+}
+
 .usage-archive-tabs {
+  border-bottom: 1px solid var(--theme-e3e1db);
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.usage-archive-tabs button.active {
-  font-weight: 600;
-  text-decoration: underline;
+.usage-archive-tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--theme-7a746c);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 13px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.usage-archive-content {
-  border-radius: 8px;
+.usage-archive-tabs button:hover {
+  color: var(--theme-2d2a26);
+}
+
+.usage-archive-tabs button.active {
+  border-bottom-color: var(--theme-2f6b3f);
+  color: var(--theme-2d2a26);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* The only scroll container in the dialog. */
+.usage-archive-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.usage-archive-placeholder {
+  color: var(--theme-7a746c);
+  font-size: 13px;
+  margin: 0;
+}
+
+.usage-archive-subhead {
+  color: var(--theme-7a746c);
   font-size: 12px;
-  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   margin: 4px 0 0;
-  max-height: 40vh;
-  overflow: auto;
-  padding: 10px;
+  text-transform: uppercase;
+}
+
+.usage-archive-toolnames {
+  color: var(--theme-5f5a53);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Grows with its content instead of being clipped: the surrounding body owns
+ * the scrolling, which is what kept long prompts from being readable before.
+ */
+.usage-archive-content {
+  border: 1px solid var(--theme-e3e1db);
+  border-radius: 9px;
+  background: var(--theme-faf9f5);
+  color: var(--theme-2d2a26);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
   white-space: pre-wrap;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .usage-archive-messages {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+.usage-archive-messages > li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.usage-archive-message-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .usage-archive-role {
-  font-size: 12px;
+  border: 1px solid var(--theme-d5d2cb);
+  border-radius: 999px;
+  color: var(--theme-5f5a53);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 9px;
   text-transform: uppercase;
 }
 
 .usage-archive-tools {
+  color: var(--theme-7a746c);
   font-size: 12px;
-  margin-left: 8px;
-  opacity: 0.8;
+  overflow-wrap: anywhere;
 }
