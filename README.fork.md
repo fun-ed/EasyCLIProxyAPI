@@ -142,6 +142,22 @@ FROM request_records WHERE request_id='<id>';"
 
 ---
 
+## 版本號與更新
+
+fork 的版本號**繼承自 upstream**（rebase 時自動帶入），用來標示目前的 upstream 基底，不需要手動維護。
+
+**app 內的自動更新已停用。** 原因：app 啟動時會檢查 upstream 的 releases，而 fork 繼承了 upstream 的版本號，所以 upstream 一發新版就會顯示「有更新」，按下去會**用官方版覆蓋掉 fork 的所有改動**。
+
+版本管理頁會顯示停用原因並指向重建指令。要升級就跑：
+
+```bash
+./sync-and-build.sh --app
+```
+
+核心（CLIProxyAPI）的更新不受影響，仍照原本方式運作。
+
+---
+
 ## 維運指令
 
 以下全部以這個變數為前提：
