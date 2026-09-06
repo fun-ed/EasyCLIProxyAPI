@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <em>これは独自メンテナンスの fork です。ビルドと実行は <a href="README.fork.md">README.fork.md</a>、保守方針は <a href="FORK.md">FORK.md</a> を参照してください。</em>
+</p>
+
+<p align="center">
   <img src="src/assets/logo.jpg" width="112" alt="EasyCLIProxyAPI Logo">
 </p>
 
