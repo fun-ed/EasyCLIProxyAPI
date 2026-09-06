@@ -492,3 +492,44 @@ fn codex_attribution_is_dropped_while_the_totals_survive() {
     assert_eq!(raw.get("total_tokens").and_then(|v| v.as_i64()), Some(141796));
 }
 
+
+#[test]
+fn messages_are_derived_from_the_stored_body_instead_of_duplicated() {
+    let root = archive_test_root("derive-messages");
+    let logs = root.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+    let log_path = logs.join("v1-messages-2026-09-06T012139-derive-1.log");
+    fs::write(&log_path, sample_log("derive-1")).unwrap();
+
+    let connection = testing::open_database(&root).unwrap();
+    let settings = RequestArchiveSettings {
+        enabled: true,
+        ..RequestArchiveSettings::default()
+    };
+    assert!(testing::ingest(&connection, &log_path, settings).unwrap());
+
+    // The conversation is kept once, in the raw body.
+    let (stored_messages, body_len): (String, i64) = connection
+        .query_row(
+            "SELECT messages_json, LENGTH(request_body) FROM request_records",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(stored_messages, "", "messages must not be persisted");
+    assert!(body_len > 0, "the raw body must still be stored");
+
+    // Reading a record reconstructs them.
+    let body: String = connection
+        .query_row("SELECT request_body FROM request_records", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let derived = crate::request_archive::testing::messages_from_payload(&body);
+    assert!(
+        derived.contains("\"role\":\"user\""),
+        "derived messages must round-trip the conversation, got {derived:?}"
+    );
+
+    fs::remove_dir_all(&root).ok();
+}
