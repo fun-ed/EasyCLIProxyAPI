@@ -1124,4 +1124,12 @@ pub(crate) mod testing {
     pub(crate) fn parse(contents: &str) -> super::parser::ParsedRequestLog {
         super::parser::parse_request_log(contents)
     }
+
+    pub(crate) fn request_id(filename: &str) -> String {
+        super::parser::request_id_from_filename(filename)
+    }
+
+    pub(crate) fn model_from_url(url: &str) -> String {
+        super::parser::model_from_url(url)
+    }
 }

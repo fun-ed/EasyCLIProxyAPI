@@ -393,12 +393,42 @@ git push -u origin feature/request-archive
 | --- | --- |
 | `tests/i18n.test.ts` 失敗：`jaOverrides` 比 `zhCN` 少 50 個 key | **upstream 既有問題**，非本 fork 造成。fork 前後缺口都是 50，且沒有任何 `usage.archive.*` 在缺漏清單裡。**不要為了讓它綠掉而亂補 key**，先確認缺口數字仍是 50 即可。sync 腳本會辨識這一筆並只發警告 |
 | `tests::instance_lock::app_instance_guard_rejects_a_second_copy_and_releases_on_drop` 偶發失敗 | **upstream 既有 flake**。該測試用固定目錄 `agent_test_home("instance-lock")`，全套並行時偶爾輸給 OS 檔案鎖的釋放時序。單獨執行必過；連跑三次全套也全過。sync 腳本失敗時會自動重試一次 |
-| 歸檔功能未做端到端實測 | 解析器正確性目前只由依 Go writer 原始碼建構的合成樣本證明。建議至少實測一筆 Claude 形狀、一筆 OpenAI 形狀的請求 |
+| 成功請求（含 usage / token 數）未實測 | 解析器已用**真實核心產出的 log** 驗證三種 provider 形狀（見 §8.1），但那三筆都是 HTTP 400 失敗請求。`usage_json` 與 token 欄位的擷取仍只有合成樣本覆蓋，需要一筆真實成功請求才算完整 |
+| UI 渲染未實測 | 詳情對話框五個分頁的實際渲染尚未在真實資料上目視確認 |
 | `usage_events.request_id` 是否在所有 provider 路徑都與 log 檔名 id 一致 | 未逐一驗證 |
 | Antigravity / Codex WebSocket timeline 的 usage 擷取 | 靠泛用遞迴搜尋 `usage` / `usageMetadata`，可能不完整 |
 | identifier 改名的孤兒登入項目 | 若先前開過「開機自動啟動」，舊的 `com.cpa.gui` 登入項目要手動移除後重開一次 |
 | `bin-work/` 舊檔 | `portable.mjs` 只清 legacy 的 `cpa-gui`，舊的 `EasyCLIProxyAPI` 要自行刪除 |
 | 歸檔內容含 system prompt 與完整 payload | DB 未加密，等同敏感資料落地，自行控管檔案權限 |
+
+---
+
+### 8.1 真實 log 迴歸測試
+
+`src-tauri/src/tests/fixtures/real-core-*.log` 是從 **CLIProxyAPI 7.2.151 實際執行產出**的 transcript，不是手寫樣本。用隔離實例（獨立 port、獨立 auth-dir、`request-log: true`）產生，未動到正式環境、未消耗任何額度。
+
+由兩個測試守護：
+
+- `parses_a_transcript_captured_from_a_live_core` — 逐欄比對 Claude 形狀
+- `ingests_live_core_transcripts_across_provider_shapes` — 完整 ingest → DB，涵蓋 Claude / OpenAI / Gemini 三種形狀
+
+**核心的 writer 格式一改，這兩個測試就會紅**，不會靜默產生空白歸檔列。
+
+重新產生 fixture 的方式：起一個隔離核心（見 §6.3 精神：獨立 port 與 auth-dir、`request-log: true`），送出各形狀請求，把 `<auth-dir>/logs/*.log` 複製進 fixtures 並更新測試中的檔名與斷言。
+
+### 8.2 已由真實 log 抓到並修掉的問題
+
+| 問題 | 說明 |
+| --- | --- |
+| Gemini 形狀的 `model` 欄位是空的 | Gemini 原生 API 把模型放在 URL 路徑（`/v1beta/models/gemini-3-pro:generateContent`），不在 request body 的 `model` 鍵。已新增 `parser::model_from_url()` 作為 fallback，並用 `model_is_recovered_from_gemini_style_paths_only` 覆蓋邊界（其他 surface 不得亂猜） |
+
+### 8.3 憑證外洩面（已查證）
+
+核心的 `util.MaskSensitiveHeaderValue` 只遮蔽 header 名稱含 `authorization` / `api-key` / `apikey` / `token` / `secret` 的欄位，**其餘 header 一律原文寫入 log，因此也會原文進歸檔**（例如 `Cookie`）。
+
+`Authorization` 是**部分遮罩**而非全遮罩：實測寫出的是 `Bearer e2e-...-key` 這種頭尾保留形式，完整憑證不會落地，但前後綴會。
+
+加上 body 全文本來就會存，因此歸檔 DB 應視為敏感資料，自行控管檔案權限。
 
 ---
 
