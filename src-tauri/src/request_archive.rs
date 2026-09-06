@@ -582,7 +582,11 @@ fn apply_retention(
     if settings.max_total_mb > 0 {
         let limit = i64::from(settings.max_total_mb) * 1024 * 1024;
         let mut guard = 0;
-        while database_bytes(root) > limit && guard < 200 {
+        // Measured from live pages rather than the file size: deleted rows only
+        // become free pages, and the file itself does not shrink until VACUUM.
+        // Re-reading the file size here would keep the condition true forever and
+        // delete the whole archive one batch at a time.
+        while live_database_bytes(connection)? > limit && guard < 200 {
             let deleted = connection
                 .execute(
                     "DELETE FROM request_records WHERE id IN (
@@ -595,9 +599,7 @@ fn apply_retention(
                 break;
             }
             removed += deleted;
-            connection
-                .execute("PRAGMA wal_checkpoint(TRUNCATE)", [])
-                .map_err(|error| format!("请求归档 WAL 检查点失败: {error}"))?;
+            checkpoint_wal(connection)?;
             guard += 1;
         }
     }
@@ -608,6 +610,30 @@ fn apply_retention(
             .map_err(|error| format!("压缩请求归档数据库失败: {error}"))?;
     }
     Ok(removed)
+}
+
+/// Bytes actually occupied by live data, excluding pages already on the free list.
+///
+/// `database_bytes` reports the size of the files on disk, which stays flat until
+/// `VACUUM` runs and is therefore useless as a loop condition while deleting.
+fn live_database_bytes(connection: &Connection) -> Result<i64, String> {
+    let read = |pragma: &str| -> Result<i64, String> {
+        connection
+            .query_row(&format!("PRAGMA {pragma}"), [], |row| row.get::<_, i64>(0))
+            .map_err(|error| format!("读取请求归档 {pragma} 失败: {error}"))
+    };
+    let page_size = read("page_size")?;
+    let page_count = read("page_count")?;
+    let free_pages = read("freelist_count")?;
+    Ok((page_count - free_pages).max(0) * page_size)
+}
+
+/// `PRAGMA wal_checkpoint` answers with a row, so it must be queried rather than
+/// executed; `execute` rejects it with "Execute returned results".
+fn checkpoint_wal(connection: &Connection) -> Result<(), String> {
+    connection
+        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+        .map_err(|error| format!("请求归档 WAL 检查点失败: {error}"))
 }
 
 fn scan_once(

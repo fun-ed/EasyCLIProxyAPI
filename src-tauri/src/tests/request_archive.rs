@@ -533,3 +533,38 @@ fn messages_are_derived_from_the_stored_body_instead_of_duplicated() {
 
     fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn size_retention_stops_at_the_limit_instead_of_emptying_the_archive() {
+    let root = archive_test_root("size-retention");
+    let logs = root.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+
+    let connection = testing::open_database(&root).unwrap();
+    let settings = RequestArchiveSettings {
+        enabled: true,
+        max_body_kb: 65536,
+        ..RequestArchiveSettings::default()
+    };
+    for index in 0..12 {
+        let path = logs.join(format!("v1-messages-2026-09-06T0121{index:02}-cap-{index}.log"));
+        fs::write(&path, sample_log(&format!("cap-{index}"))).unwrap();
+        assert!(testing::ingest(&connection, &path, settings).unwrap());
+    }
+
+    // A cap far above the data must not delete anything, and must not error on
+    // the WAL checkpoint, which previously aborted before VACUUM and left the
+    // loop measuring an unchanged file size until every row was gone.
+    let generous = RequestArchiveSettings {
+        max_total_mb: 512,
+        ..settings
+    };
+    assert_eq!(testing::retention(&connection, &root, generous).unwrap(), 0);
+
+    let remaining: i64 = connection
+        .query_row("SELECT COUNT(*) FROM request_records", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(remaining, 12, "nothing may be deleted while under the cap");
+
+    fs::remove_dir_all(&root).ok();
+}
