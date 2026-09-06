@@ -303,3 +303,151 @@ fn fork_kill_switch_only_trips_on_explicit_negative_values() {
         "an unset variable must leave the fork feature enabled"
     );
 }
+
+
+/// Guards the parser against a transcript captured from a real CLIProxyAPI 7.2.151
+/// process rather than a hand-written sample, so a change to the core's writer
+/// shows up here instead of silently producing empty archive rows.
+#[test]
+fn parses_a_transcript_captured_from_a_live_core() {
+    let raw = include_str!("fixtures/real-core-claude-error.log");
+    let parsed = testing::parse(raw);
+
+    assert_eq!(parsed.core_version, "7.2.151");
+    assert_eq!(parsed.method, "POST");
+    assert_eq!(parsed.url, "/v1/messages");
+    assert_eq!(parsed.downstream_transport, "http");
+    assert_eq!(parsed.upstream_transport, "http");
+    assert_eq!(parsed.model, "claude-sonnet-4-20250514");
+    assert!(!parsed.stream);
+    assert_eq!(parsed.response_status, 400);
+
+    assert_eq!(
+        parsed.system_prompt,
+        "You are a terse assistant used for an end to end archive test."
+    );
+    assert!(parsed.messages_json.contains("Reply with the single word OK."));
+    assert!(parsed.tools_json.contains("get_weather"));
+
+    // The header wins over the request id embedded in the log file name.
+    assert_eq!(
+        parsed
+            .request_headers
+            .get("X-Request-Id")
+            .and_then(|values| values.first())
+            .map(String::as_str),
+        Some("e2e-claude-0001")
+    );
+    assert_eq!(
+        crate::request_archive::testing::request_id("v1-messages-2026-09-06T115125-60d64dd7.log"),
+        "60d64dd7"
+    );
+
+    // The core only partially masks Authorization (util.MaskAuthorizationHeader
+    // keeps the leading and trailing characters), so the archive never sees the
+    // whole credential. Assert the property rather than the exact mask shape.
+    let authorization = parsed
+        .request_headers
+        .get("Authorization")
+        .and_then(|values| values.first())
+        .expect("the Authorization header must survive as a masked value");
+    assert!(
+        authorization.contains("..."),
+        "Authorization must carry the core's mask marker, got {authorization:?}"
+    );
+    assert!(
+        !raw.contains("e2e-test-key"),
+        "the unmasked credential must never reach the archive"
+    );
+
+    assert!(parsed.api_response.contains("unknown provider"));
+    assert!(parsed.response_body.contains("invalid_request_error"));
+}
+
+/// Drives the whole ingest path with transcripts captured from a live core in the
+/// three provider shapes the parser branches on, so a regression in system prompt
+/// or message extraction cannot pass as an empty-but-present row.
+#[test]
+fn ingests_live_core_transcripts_across_provider_shapes() {
+    let root = archive_test_root("live-shapes");
+    let logs = root.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+
+    let cases: [(&str, &str, &str, &str); 3] = [
+        (
+            "v1-messages-2026-09-06T115125-60d64dd7.log",
+            include_str!("fixtures/real-core-claude-error.log"),
+            "e2e-claude-0001",
+            "You are a terse assistant used for an end to end archive test.",
+        ),
+        (
+            "v1-chat-completions-2026-09-06T115407-61346789.log",
+            include_str!("fixtures/real-core-openai-error.log"),
+            "e2e-openai-0002",
+            "sys prompt for openai shape",
+        ),
+        (
+            "v1beta-models-gemini-3-pro-generateContent-2026-09-06T115407-e831c26d.log",
+            include_str!("fixtures/real-core-gemini-error.log"),
+            "e2e-gemini-0003",
+            "gemini system text",
+        ),
+    ];
+
+    let connection = testing::open_database(&root).unwrap();
+    let settings = RequestArchiveSettings {
+        enabled: true,
+        ..RequestArchiveSettings::default()
+    };
+
+    for (name, contents, _, _) in cases {
+        let path = logs.join(name);
+        fs::write(&path, contents).unwrap();
+        assert!(
+            testing::ingest(&connection, &path, settings).unwrap(),
+            "{name} must be ingested"
+        );
+    }
+
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM request_records", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 3);
+
+    for (name, _, request_id, system_prompt) in cases {
+        let (stored_prompt, status, model): (String, i64, String) = connection
+            .query_row(
+                "SELECT system_prompt, http_status, model FROM request_records WHERE request_id = ?1",
+                [request_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap_or_else(|error| panic!("{name} produced no row for {request_id}: {error}"));
+
+        assert_eq!(stored_prompt, system_prompt, "{name} system prompt");
+        assert_eq!(status, 400, "{name} http status");
+        assert!(!model.is_empty(), "{name} must record a model");
+    }
+
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn model_is_recovered_from_gemini_style_paths_only() {
+    use crate::request_archive::testing::model_from_url;
+
+    assert_eq!(
+        model_from_url("/v1beta/models/gemini-3-pro:generateContent"),
+        "gemini-3-pro"
+    );
+    assert_eq!(
+        model_from_url("http://127.0.0.1:8317/v1beta/models/gemini-3-flash:streamGenerateContent?alt=sse"),
+        "gemini-3-flash"
+    );
+    assert_eq!(model_from_url("/v1beta/models/gemini-3-pro"), "gemini-3-pro");
+
+    // Surfaces that carry the model in the body must not be guessed at.
+    assert_eq!(model_from_url("/v1/messages"), "");
+    assert_eq!(model_from_url("/v1/chat/completions"), "");
+    assert_eq!(model_from_url(""), "");
+    assert_eq!(model_from_url("/v1beta/models/"), "");
+}
