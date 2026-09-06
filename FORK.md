@@ -30,6 +30,30 @@
 | --- | --- | --- |
 | `afa8120` | `feat(usage)`：完整請求歸檔（request archive） | 可 |
 | `630fa48` | `chore(fork)`：改名為 `EasyCLIProxyAPI-fork` | 可 |
+| `acaedfa` | `feat(fork)`：`CPA_FORK_ARCHIVE` 總開關 | 可 |
+
+## 1.1 緊急停用（kill switch）
+
+sync 之後功能壞掉時，**不需要 revert commit**，設環境變數就能回到 upstream 行為：
+
+```bash
+CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
+```
+
+接受的關閉值（不分大小寫、自動去空白）：`0`、`false`、`off`、`no`。其他值或未設定 = 功能啟用。
+
+關閉後的效果：
+
+| 面向 | 行為 |
+| --- | --- |
+| 採集器 | 不啟動，stderr 印出一行說明 |
+| `get_request_archive_status` | 直接回 `forkDisabled: true`，不碰 DB |
+| 設定卡片 | 不渲染 |
+| 事件列 | 不可點、無 hover 游標 |
+| 詳情對話框 | 不渲染 |
+| 既有 `requests.db` | 保留不動，重新開啟後資料還在 |
+
+實作只有兩個檢查點（`request_archive.rs` 的 ingester 啟動與 status 命令），UI 判斷全在 fork 自有的 `RequestArchivePanel.tsx`，因此在 upstream 檔案只多 1 行。
 
 ---
 
@@ -49,9 +73,9 @@
 │  tests/requestArchive.test.ts                          │
 │  FORK.md                                               │
 └────────────────────────────────────────────────────────┘
-┌─ B 區：整合點（rebase 時可能衝突，共 57 行）──────────┐
+┌─ B 區：整合點（rebase 時可能衝突，共 58 行）──────────┐
 │  src-tauri/src/main.rs                    14 行        │
-│  src/pages/UsageRecordsPage.tsx           24 行        │
+│  src/pages/UsageRecordsPage.tsx           25 行        │
 │  src/i18n/locales/zh-CN.ts                 3 行        │
 │  src/i18n/locales/en.ts                    2 行        │
 │  src/i18n/ja.ts                            2 行        │
@@ -85,15 +109,15 @@ rebase 出現衝突時，照這張表判斷該保留什麼。
 | `setup` 內 spawn 區 | `spawn_blocking` 呼叫 `start_request_archive_ingester` | 放在 `start_usage_collector` 之後 |
 | `generate_handler![]` | 7 個 `request_archive::*` 命令 | **最容易衝突**。兩邊的命令都要保留，一個都不能掉 |
 
-### 3.2 `src/pages/UsageRecordsPage.tsx`（5 處，24 行）
+### 3.2 `src/pages/UsageRecordsPage.tsx`（6 處，25 行）
 
 | 位置 | 內容 | 衝突處理 |
 | --- | --- | --- |
-| import 區 | `import { RequestArchiveDetailDialog, RequestArchiveSettingsCard } from './RequestArchivePanel';` | 加回去 |
+| import 區 | `import { RequestArchiveDetailDialog, RequestArchiveSettingsCard, useRequestArchiveAvailable } from './RequestArchivePanel';` | 加回去 |
 | `type UsageRecord` | 新增 `request_id: string;` | **必須保留**，沒有它整個詳情入口失效 |
 | `data-management` 分頁 | `<UsageDataManagementView />` 外包一層 fragment，後面接 `<RequestArchiveSettingsCard />` | 若 upstream 重構分頁，把卡片掛回資料管理分頁即可 |
-| `EventsView` state | `const [archiveRequestId, setArchiveRequestId] = useState('');` | 加回去 |
-| 事件表 `<tr>` | `className` / `title` / `onClick` 三個 prop | **若 upstream 重構表格，這三個 prop 要重新掛回 `<tr>`** |
+| `EventsView` state | `const [archiveRequestId, setArchiveRequestId] = useState('');` 與其下一行的 `const archiveAvailable = useRequestArchiveAvailable() !== false;` | 兩行都要加回去 |
+| 事件表 `<tr>` | `className` / `title` / `onClick` 三個 prop，都以 `archiveAvailable &&` 起頭 | **若 upstream 重構表格，這三個 prop 要重新掛回 `<tr>`** |
 | `EventsView` 尾端 | 條件渲染 `<RequestArchiveDetailDialog>` | 放在 `<UsageEmpty />` 之後、欄位設定對話框之前 |
 
 ### 3.3 i18n（3 檔，7 行）
@@ -229,6 +253,7 @@ cd src-tauri && cargo test && cd ..  # 預期 332 passed / 0 failed
 - [ ] 啟動 app：視窗標題是 `EasyCLIProxyAPI-fork`
 - [ ] 用量統計 → 資料管理 → 「完整請求歸檔」卡片存在、狀態正常
 - [ ] 發一筆真實請求 → 事件列可點 → 詳情對話框五個分頁都有內容
+- [ ] 若上一項失敗：先用 `CPA_FORK_ARCHIVE=0` 啟動確認 app 其餘功能正常，再回頭修（§1.1）
 
 ---
 
