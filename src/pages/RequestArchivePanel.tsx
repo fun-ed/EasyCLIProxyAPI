@@ -140,11 +140,15 @@ export function RequestArchiveSettingsCard() {
             <input
               type="checkbox"
               checked={status.requestLogEnabled}
-              disabled={saving}
+              disabled={saving || status.commercialMode}
               onChange={(event) => void setRequestLog(event.target.checked)}
             />
             <span>{t('usage.archive.requestLogSwitch')}</span>
           </label>
+
+          {readiness === 'commercial-mode' ? (
+            <p className="form-error">{t('usage.archive.commercialModeBlocked')}</p>
+          ) : null}
 
           {readiness === 'awaiting-request-log' ? (
             <p className="form-error">{t('usage.archive.requestLogRequired')}</p>

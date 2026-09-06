@@ -10,6 +10,8 @@ export type RequestArchiveSettings = {
 export type RequestArchiveStatus = RequestArchiveSettings & {
   /** True when the CPA_FORK_ARCHIVE kill switch turned the whole fork feature off. */
   forkDisabled: boolean;
+  /** True when the core's commercial mode is suppressing request logging entirely. */
+  commercialMode: boolean;
   settingsEnabled: boolean;
   requestLogEnabled: boolean;
   recordCount: number;
@@ -95,14 +97,22 @@ export const requestArchiveApi = {
   clear: () => invoke<void>('clear_request_archive'),
 };
 
-export type ArchiveReadiness = 'fork-disabled' | 'disabled' | 'awaiting-request-log' | 'ready';
+export type ArchiveReadiness =
+  | 'fork-disabled'
+  | 'disabled'
+  | 'commercial-mode'
+  | 'awaiting-request-log'
+  | 'ready';
 
 /**
  * Archiving only produces rows when the core is also writing request logs, so a
  * enabled archive without `request-log` is reported as an actionable state.
+ *
+ * Commercial mode outranks `request-log`: the core skips registering its request
+ * logging middleware entirely while it is on, so the toggle is silently inert.
  */
 export function archiveReadiness(
-  status: Partial<Pick<RequestArchiveStatus, 'forkDisabled'>> &
+  status: Partial<Pick<RequestArchiveStatus, 'forkDisabled' | 'commercialMode'>> &
     Pick<RequestArchiveStatus, 'settingsEnabled' | 'requestLogEnabled'>,
 ): ArchiveReadiness {
   if (status.forkDisabled) {
@@ -110,6 +120,9 @@ export function archiveReadiness(
   }
   if (!status.settingsEnabled) {
     return 'disabled';
+  }
+  if (status.commercialMode) {
+    return 'commercial-mode';
   }
   return status.requestLogEnabled ? 'ready' : 'awaiting-request-log';
 }
