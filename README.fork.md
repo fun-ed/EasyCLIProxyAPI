@@ -142,6 +142,147 @@ FROM request_records WHERE request_id='<id>';"
 
 ---
 
+## 維運指令
+
+以下全部以這個變數為前提：
+
+```bash
+BASE="$HOME/Library/Application Support/com.cpa.gui"
+DB="$BASE/request-records/requests.db"
+```
+
+### 健康檢查（先跑這個）
+
+一次看完所有關鍵狀態：
+
+```bash
+echo "— 執行中的程序 —"; pgrep -fl "cpa-gui|cli-proxy-api" || echo "(未執行)"
+echo "— 三個開關 —"
+sqlite3 "$DB" "SELECT key,value FROM archive_metadata;" 2>/dev/null
+grep -n "^request-log\|^commercial-mode\|^logs-max-total-size-mb" "$BASE/config.toml"
+echo "— 磁碟 —"
+du -sh "$BASE/oauth/logs"; ls -lh "$DB" | awk '{print "requests.db:", $5}'
+sqlite3 "$DB" "SELECT COUNT(*) FROM request_records;" | xargs echo "歸檔筆數:"
+```
+
+判讀：`enabled=true` + `request-log = true` + `commercial-mode = false`，三者缺一就不會有記錄。
+
+### 歸檔沒有資料時的排查順序
+
+```bash
+# 1. 來源檔存在嗎？只有 main.log 代表核心沒在寫 transcript
+ls -t "$BASE/oauth/logs" | head -5
+
+# 2. 核心是否確實載入了設定（找設定重載事件）
+grep -n "request-log:" "$BASE/oauth/logs/main.log" | tail -3
+
+# 3. 開啟後有沒有新請求（management 呼叫不算）
+grep -E "POST|GET" "$BASE/oauth/logs/main.log" | grep -v "v0/management" | tail -5
+```
+
+若第 1 步只有 `main.log`，八成是 `commercial-mode` 還開著 —— 那會讓核心**完全跳過**請求日誌 middleware，`request-log` 開了也沒用，而且不會有任何錯誤訊息。詳見 `FORK.md` §10.3。
+
+### 檢視歸檔內容
+
+```bash
+# 最近 20 筆
+sqlite3 -header -column "$DB" "
+SELECT captured_at, model, http_status, total_tokens, request_id
+FROM request_records ORDER BY captured_at_ms DESC LIMIT 20;"
+
+# 各欄位是否有值（0 代表解析失敗，要注意）
+sqlite3 -header -column "$DB" "
+SELECT model, http_status, total_tokens,
+       LENGTH(system_prompt) sys_len, LENGTH(request_body) body_len,
+       LENGTH(tools_json) tool_len, LENGTH(usage_json) usage_len, truncated
+FROM request_records ORDER BY captured_at_ms DESC LIMIT 10;"
+
+# 單筆完整內容
+sqlite3 "$DB" "
+SELECT system_prompt, tools_json, usage_json, request_body
+FROM request_records WHERE request_id='<id>';"
+```
+
+> 訊息不再獨立儲存，改由 `request_body` 即時解析，所以查對話內容要看 `request_body`。
+
+### 驗證 token 數是否正確
+
+與核心自己的用量資料庫交叉比對。兩者是**完全獨立的來源**（我們解析 log 檔，核心走 usage 頻道），數字一致就代表解析正確：
+
+```bash
+U="$BASE/usage-records/usage.db"
+for rid in $(sqlite3 "$DB" "SELECT request_id FROM request_records WHERE http_status=200 ORDER BY captured_at_ms DESC LIMIT 3;"); do
+  echo "--- $rid ---"
+  sqlite3 -header -column "$DB" "SELECT 'archive' src, input_tokens, output_tokens, cache_read_tokens, total_tokens FROM request_records WHERE request_id='$rid';"
+  sqlite3 -header -column "$U"  "SELECT 'usage  ' src, input_tokens, output_tokens, cache_read_tokens, total_tokens FROM usage_events WHERE request_id='$rid';"
+done
+```
+
+### 磁碟用量分析
+
+```bash
+# 哪個欄位在吃空間（MB）
+sqlite3 -header -column "$DB" "
+SELECT SUM(LENGTH(request_body))/1048576   AS request_body,
+       SUM(LENGTH(response_body))/1048576  AS response_body,
+       SUM(LENGTH(system_prompt))/1048576  AS system_prompt,
+       SUM(LENGTH(tools_json))/1048576     AS tools_json,
+       SUM(LENGTH(messages_json))/1048576  AS messages_json_legacy
+FROM request_records;"
+
+# 平均每筆多大
+sqlite3 "$DB" "SELECT COUNT(*) || ' 筆, 平均 ' || (SUM(byte_size)/COUNT(*)/1048576) || ' MB/筆' FROM request_records;"
+
+# 最大的來源 log
+ls -lhS "$BASE/oauth/logs" | head -5
+```
+
+參考值：改用即時解析後約 **3.5 MB/筆**（先前重複儲存訊息時是 6.1 MB）。
+
+### 清理
+
+**務必先關掉 app**，否則會與執行中的連線衝突：
+
+```bash
+pkill -x cpa-gui; sleep 3
+pgrep -fl "cpa-gui|cli-proxy-api" || echo "已全部關閉"
+```
+
+```bash
+# 清空歸檔（設定會保留，原始 log 不受影響）
+sqlite3 "$DB" "DELETE FROM request_records;" && sqlite3 "$DB" "VACUUM;"
+
+# 清掉舊的來源 log
+find "$BASE/oauth/logs" \( -name "v1-*.log" -o -name "v1beta-*.log" -o -name "request-log-parts-*" \) -delete
+```
+
+> ⚠️ **只清歸檔而不清 log，重啟後會全部長回來** —— 去重鍵是 `source_file`，log 檔還在就會被重新歸檔。要真的縮小就兩個都清。
+
+### 控制成長速度
+
+兩個獨立的成長源，要分開設定：
+
+| 設定 | 位置 | 作用 |
+| --- | --- | --- |
+| 日誌檔案總容量上限 | 進階設定 | 核心 `logs/` 的上限，**預設 `0` = 不限制** |
+| 資料庫上限 MB | 歸檔卡片 | `requests.db` 的上限 |
+| 保留天數 | 歸檔卡片 | 依時間清理 |
+| 单字段上限 KB | 歸檔卡片 | 單一欄位截斷點，直接決定每筆多大 |
+
+核心的清理器要**重啟核心**才會套用新的上限。
+
+### 設定備份與還原
+
+改設定前先備份：
+
+```bash
+cp "$BASE/config.toml" "$BASE/config.toml.bak.$(date +%Y%m%d-%H%M%S)"
+```
+
+`config.toml` 是 GUI 層的來源，核心的 `cpa-core/config.yaml` 會在每次啟動時由它覆寫，所以**只改 yaml 不會持久**。
+
+---
+
 ## 出事時
 
 | 狀況 | 動作 |
