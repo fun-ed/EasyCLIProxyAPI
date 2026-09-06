@@ -645,6 +645,26 @@ sqlite3 "$HOME/Library/Application Support/com.cpa.gui/request-records/requests.
 
 ---
 
+### 10.3.1 日誌目錄有兩套上限，計算方式不同
+
+核心與 fork 各有一套 log 目錄上限，**兩者的計算範圍不一樣**：
+
+| | 核心 `logs-max-total-size-mb` | fork 的「日誌目錄上限 MB」 |
+| --- | --- | --- |
+| 掃描範圍 | **只有頂層**，`entry.IsDir()` 直接跳過 | **遞迴含子目錄** |
+| 檔名條件 | 只算 `.log` / `.log.gz` | 所有檔案 |
+| 刪除對象 | 最舊的 log 檔（`main.log` 受保護） | **只刪已歸檔的 transcript** 與過期的 spill 目錄 |
+| 執行頻率 | 每 1 分鐘 | 每 5 秒（隨採集器） |
+| 出處 | `internal/logging/log_dir_cleaner.go` | `enforce_logs_directory_limit()` |
+
+後果：核心把大 payload 溢出到 `request-log-parts-*` 子目錄時**不計入自己的上限也不會清理**，磁碟實際用量因此可能超過使用者設定的值。fork 的統計與清理都採遞迴，所以卡片上顯示的數字才是實際佔用。
+
+**fork 的上限只刪已歸檔的檔案**，未歸檔的一律保留 —— 清理永遠不會刪掉還沒被捕捉的請求。若剩下的全是未歸檔檔案，這一輪就停手而不強行刪除。
+
+設 `0` 表示完全交給核心。兩者可並存，fork 的較嚴格且準確，實務上由它主導。
+
+上限是**週期性強制**而非即時，因此兩次清理之間會短暫超出，超出量約等於「產生速率 × 週期」。實測核心週期為 1 分鐘、單筆 transcript 可達 13 MB，短暫超出數十 MB 屬正常。
+
 ### 10.4 兩個曾造成資料遺失的陷阱
 
 **`PRAGMA` 會回傳結果列。** `PRAGMA wal_checkpoint(TRUNCATE)` 用 `execute()` 呼叫會失敗（`Execute returned results`），必須用 `query_row`。這個錯誤在 `apply_retention` 裡被 `?` 提前中止，導致後面的 `VACUUM` 永遠沒執行。
