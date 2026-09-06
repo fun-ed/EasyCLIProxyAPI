@@ -310,7 +310,7 @@ fn fork_kill_switch_only_trips_on_explicit_negative_values() {
 /// shows up here instead of silently producing empty archive rows.
 #[test]
 fn parses_a_transcript_captured_from_a_live_core() {
-    let raw = include_str!("fixtures/real-core-claude-error.log");
+    let raw = include_str!("fixtures/real-core-claude-error.txt");
     let parsed = testing::parse(raw);
 
     assert_eq!(parsed.core_version, "7.2.151");
@@ -376,19 +376,19 @@ fn ingests_live_core_transcripts_across_provider_shapes() {
     let cases: [(&str, &str, &str, &str); 3] = [
         (
             "v1-messages-2026-09-06T115125-60d64dd7.log",
-            include_str!("fixtures/real-core-claude-error.log"),
+            include_str!("fixtures/real-core-claude-error.txt"),
             "e2e-claude-0001",
             "You are a terse assistant used for an end to end archive test.",
         ),
         (
             "v1-chat-completions-2026-09-06T115407-61346789.log",
-            include_str!("fixtures/real-core-openai-error.log"),
+            include_str!("fixtures/real-core-openai-error.txt"),
             "e2e-openai-0002",
             "sys prompt for openai shape",
         ),
         (
             "v1beta-models-gemini-3-pro-generateContent-2026-09-06T115407-e831c26d.log",
-            include_str!("fixtures/real-core-gemini-error.log"),
+            include_str!("fixtures/real-core-gemini-error.txt"),
             "e2e-gemini-0003",
             "gemini system text",
         ),
