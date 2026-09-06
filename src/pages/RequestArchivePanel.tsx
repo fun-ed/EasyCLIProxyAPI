@@ -85,10 +85,10 @@ export function RequestArchiveSettingsCard() {
     }
   };
 
-  const enableRequestLog = async () => {
+  const setRequestLog = async (enabled: boolean) => {
     setSaving(true);
     try {
-      await invoke('set_core_request_log', { enabled: true });
+      await invoke('set_core_request_log', { enabled });
       await refresh();
     } catch (saveError) {
       setError(String(saveError));
@@ -136,13 +136,18 @@ export function RequestArchiveSettingsCard() {
             <span>{t('usage.archive.enable')}</span>
           </label>
 
+          <label className="switch-row">
+            <input
+              type="checkbox"
+              checked={status.requestLogEnabled}
+              disabled={saving}
+              onChange={(event) => void setRequestLog(event.target.checked)}
+            />
+            <span>{t('usage.archive.requestLogSwitch')}</span>
+          </label>
+
           {readiness === 'awaiting-request-log' ? (
-            <p className="form-error">
-              {t('usage.archive.requestLogRequired')}{' '}
-              <button type="button" className="link-button" disabled={saving} onClick={() => void enableRequestLog()}>
-                {t('usage.archive.enableRequestLog')}
-              </button>
-            </p>
+            <p className="form-error">{t('usage.archive.requestLogRequired')}</p>
           ) : null}
 
           <div className="form-grid">
