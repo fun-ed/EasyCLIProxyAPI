@@ -462,22 +462,49 @@ open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 
 `.app` 版與正式版共用 `~/Library/Application Support/com.cpa.gui`（auth 檔、config、`usage.db` 都同一份），但**不可同時執行**，兩者會搶 port 8317。
 
-### 9.2 啟用歸檔的兩個開關
+### 9.2 啟用歸檔的三個前提
 
-歸檔要出資料需要**兩個開關都開**，缺一不可：
+歸檔要出資料需要**三個條件同時成立**，缺一就是 0 筆：
 
-1. **啟用完整請求歸檔** — 歸檔自己的開關，存在歸檔 DB 的 `archive_metadata`
-2. **核心 request-log** — 資料來源，存在 GUI 的 `config.toml` 並套用到核心 config
+| # | 條件 | 位置 | 預設 |
+| --- | --- | --- | --- |
+| 1 | **啟用完整請求歸檔** | 歸檔 DB 的 `archive_metadata` | `false` |
+| 2 | **核心 request-log** | GUI `config.toml` → 核心 `config.yaml` | `false` |
+| 3 | **關閉 commercial-mode** | GUI `config.toml` → 核心 `config.yaml` | 依安裝而異，**可能是 `true`** |
 
-`request-log` 預設 `false`，且**本 fork 的歸檔卡片是整個 app 唯一能開它的地方**（upstream 註冊了 `set_core_request_log` 命令但沒有做任何 UI）。只開第一個開關會得到 0 筆記錄。
+條件 2 的開關**只存在於本 fork 的歸檔卡片**：upstream 註冊了 `set_core_request_log` 命令，但沒有做任何 UI。
 
-驗證兩個開關的實際狀態：
+一次驗證三個條件：
 
 ```bash
 BASE="$HOME/Library/Application Support/com.cpa.gui"
 sqlite3 "$BASE/request-records/requests.db" "SELECT key,value FROM archive_metadata;"
-grep -n "^request-log" "$BASE/config.toml" "$BASE/cpa-core/config.yaml"
+grep -n "^request-log\|^commercial-mode" "$BASE/config.toml" "$BASE/cpa-core/config.yaml"
+ls "$BASE/oauth/logs" | head        # 應該要有 v1-*.log 之類的逐請求檔，不只 main.log
 ```
+
+### 9.3 `commercial-mode` 會完全停用 request-log（最容易踩的坑）
+
+`internal/api/server.go:148`：
+
+```go
+if !cfg.CommercialMode {
+    requestLogger = optionState.requestLoggerFactory(cfg, configFilePath)
+    engine.Use(middleware.RequestLoggingMiddleware(requestLogger))
+}
+```
+
+**商用模式開啟時，請求日誌 middleware 根本不會被註冊。** 後果：
+
+- `request-log: true` 完全無效，且**沒有任何錯誤訊息**
+- 設定熱重載會照常記錄 `request-log: false -> true`，但 `requestLogger` 是 `nil`，toggle 什麼都沒做
+- **重啟核心也沒用**，只要 commercial-mode 還開著
+
+同一個 gate 也出現在 `internal/runtime/executor/helps/logging_helpers.go:61`（`cfg.RequestLog && !cfg.CommercialMode`）與 `internal/api/server_options.go:50`。`config.go:43` 的註解寫得很清楚：「CommercialMode disables high-overhead request logging」。
+
+**解法**：進階設定關閉商用模式 → **重啟核心**（middleware 在伺服器建構期註冊，熱重載補不回來）。
+
+歸檔卡片已會偵測此狀態：`archiveReadiness()` 回傳 `'commercial-mode'`，顯示紅字說明並把 request-log 開關禁用（避免使用者以為開了就會有效）。
 | 主表 | `request_records`（38 欄）、`archive_metadata`（設定） |
 | 掃描間隔 | 5 秒，單次最多 200 檔 |
 | 去重鍵 | `source_file` UNIQUE + `source_fingerprint = "{len}:{mtime_ms}"` |
