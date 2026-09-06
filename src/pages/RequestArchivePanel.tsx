@@ -126,35 +126,37 @@ export function RequestArchiveSettingsCard() {
 
       {status ? (
         <>
-          <label className="switch-row">
-            <input
-              type="checkbox"
-              checked={status.settingsEnabled}
-              disabled={saving}
-              onChange={(event) => void persist({ settingsEnabled: event.target.checked })}
-            />
-            <span>{t('usage.archive.enable')}</span>
-          </label>
+          <div className="usage-archive-switches">
+            <label className="usage-archive-switch">
+              <input
+                type="checkbox"
+                checked={status.settingsEnabled}
+                disabled={saving}
+                onChange={(event) => void persist({ settingsEnabled: event.target.checked })}
+              />
+              <span>{t('usage.archive.enable')}</span>
+            </label>
 
-          <label className="switch-row">
-            <input
-              type="checkbox"
-              checked={status.requestLogEnabled}
-              disabled={saving || status.commercialMode}
-              onChange={(event) => void setRequestLog(event.target.checked)}
-            />
-            <span>{t('usage.archive.requestLogSwitch')}</span>
-          </label>
+            <label className="usage-archive-switch">
+              <input
+                type="checkbox"
+                checked={status.requestLogEnabled}
+                disabled={saving || status.commercialMode}
+                onChange={(event) => void setRequestLog(event.target.checked)}
+              />
+              <span>{t('usage.archive.requestLogSwitch')}</span>
+            </label>
+          </div>
 
           {readiness === 'commercial-mode' ? (
-            <p className="form-error">{t('usage.archive.commercialModeBlocked')}</p>
+            <p className="usage-archive-alert">{t('usage.archive.commercialModeBlocked')}</p>
           ) : null}
 
           {readiness === 'awaiting-request-log' ? (
-            <p className="form-error">{t('usage.archive.requestLogRequired')}</p>
+            <p className="usage-archive-alert">{t('usage.archive.requestLogRequired')}</p>
           ) : null}
 
-          <div className="form-grid">
+          <div className="usage-archive-fields">
             <label>
               <span>{t('usage.archive.retentionDays')}</span>
               <input
@@ -181,6 +183,7 @@ export function RequestArchiveSettingsCard() {
               <input
                 type="number"
                 min={16}
+                max={65536}
                 value={status.maxBodyKb}
                 disabled={saving}
                 onChange={(event) => void persist({ maxBodyKb: Number(event.target.value) })}
@@ -203,13 +206,18 @@ export function RequestArchiveSettingsCard() {
             </div>
           </dl>
 
-          <p className="usage-archive-path" title={status.databasePath}>
-            {t('usage.archive.databasePath')}: <code>{status.databasePath}</code>
-          </p>
-          <p className="usage-archive-path" title={status.logsDirectory}>
-            {t('usage.archive.logsDirectory')}: <code>{status.logsDirectory}</code>
-          </p>
-          {status.lastError ? <p className="form-error">{status.lastError}</p> : null}
+          <div className="usage-archive-paths">
+            <p title={status.databasePath}>
+              <span>{t('usage.archive.databasePath')}</span>
+              <code>{status.databasePath}</code>
+            </p>
+            <p title={status.logsDirectory}>
+              <span>{t('usage.archive.logsDirectory')}</span>
+              <code>{status.logsDirectory}</code>
+            </p>
+          </div>
+
+          {status.lastError ? <p className="usage-archive-alert">{status.lastError}</p> : null}
 
           <div className="usage-archive-actions">
             <button type="button" disabled={saving} onClick={() => void refresh()}>
@@ -220,7 +228,12 @@ export function RequestArchiveSettingsCard() {
               <FolderOpen size={16} aria-hidden="true" />
               <span>{t('usage.archive.openLogs')}</span>
             </button>
-            <button type="button" className="danger" disabled={saving} onClick={() => void clear()}>
+            <button
+              type="button"
+              className="usage-archive-danger"
+              disabled={saving}
+              onClick={() => void clear()}
+            >
               {t('usage.archive.clear')}
             </button>
           </div>
@@ -302,21 +315,27 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
       >
         <header className="usage-archive-dialog-header">
           <h2>{t('usage.archive.detailTitle')}</h2>
-          <button type="button" aria-label={t('usage.archive.close')} onClick={onClose}>
+          <button
+            type="button"
+            className="usage-archive-close"
+            aria-label={t('usage.archive.close')}
+            onClick={onClose}
+          >
             <X size={18} aria-hidden="true" />
           </button>
         </header>
 
-        {loading ? <p>{t('usage.archive.loading')}</p> : null}
-        {error ? <p className="form-error">{error}</p> : null}
-        {!loading && !error && !detail ? <p>{t('usage.archive.notFound')}</p> : null}
-
         {detail ? (
           <>
             <p className="usage-archive-meta">
-              {detail.method} {detail.endpoint} · {detail.model || '—'} · HTTP {detail.httpStatus} ·{' '}
-              {detail.capturedAt}
-              {detail.truncated ? ` · ${t('usage.archive.truncated')}` : ''}
+              <span>{detail.method}</span>
+              <span>{detail.endpoint}</span>
+              <span>{detail.model || '—'}</span>
+              <span>HTTP {detail.httpStatus}</span>
+              <span>{detail.capturedAt}</span>
+              {detail.truncated ? (
+                <span className="usage-archive-truncated">{t('usage.archive.truncated')}</span>
+              ) : null}
             </p>
 
             <nav className="usage-archive-tabs">
@@ -331,60 +350,70 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
                 </button>
               ))}
             </nav>
+          </>
+        ) : null}
 
-            {section === 'system' ? (
-              <pre className="usage-archive-content">{detail.systemPrompt || t('usage.archive.empty')}</pre>
-            ) : null}
+        <div className="usage-archive-dialog-body">
+          {loading ? <p className="usage-archive-placeholder">{t('usage.archive.loading')}</p> : null}
+          {error ? <p className="usage-archive-alert">{error}</p> : null}
+          {!loading && !error && !detail ? (
+            <p className="usage-archive-placeholder">{t('usage.archive.notFound')}</p>
+          ) : null}
 
-            {section === 'messages' ? (
-              messages.length === 0 ? (
-                <p>{t('usage.archive.empty')}</p>
-              ) : (
-                <ol className="usage-archive-messages">
-                  {messages.map((message, index) => (
-                    <li key={`${message.role}-${index}`}>
+          {detail && section === 'system' ? (
+            <pre className="usage-archive-content">{detail.systemPrompt || t('usage.archive.empty')}</pre>
+          ) : null}
+
+          {detail && section === 'messages' ? (
+            messages.length === 0 ? (
+              <p className="usage-archive-placeholder">{t('usage.archive.empty')}</p>
+            ) : (
+              <ol className="usage-archive-messages">
+                {messages.map((message, index) => (
+                  <li key={`${message.role}-${index}`}>
+                    <div className="usage-archive-message-head">
                       <span className="usage-archive-role">{message.role}</span>
                       {message.toolCalls.length > 0 ? (
                         <span className="usage-archive-tools">{message.toolCalls.join(', ')}</span>
                       ) : null}
-                      <pre className="usage-archive-content">{message.text || t('usage.archive.empty')}</pre>
-                    </li>
-                  ))}
-                </ol>
-              )
-            ) : null}
+                    </div>
+                    <pre className="usage-archive-content">{message.text || t('usage.archive.empty')}</pre>
+                  </li>
+                ))}
+              </ol>
+            )
+          ) : null}
 
-            {section === 'tools' ? (
-              toolNames.length === 0 ? (
-                <p>{t('usage.archive.empty')}</p>
-              ) : (
-                <>
-                  <p className="usage-archive-meta">{toolNames.join(', ')}</p>
-                  <pre className="usage-archive-content">{formatArchiveJson(detail.toolsJson)}</pre>
-                </>
-              )
-            ) : null}
-
-            {section === 'usage' ? (
-              <pre className="usage-archive-content">
-                {formatArchiveJson(detail.usageJson) || t('usage.archive.empty')}
-              </pre>
-            ) : null}
-
-            {section === 'raw' ? (
+          {detail && section === 'tools' ? (
+            toolNames.length === 0 ? (
+              <p className="usage-archive-placeholder">{t('usage.archive.empty')}</p>
+            ) : (
               <>
-                <h3>{t('usage.archive.rawRequest')}</h3>
-                <pre className="usage-archive-content">
-                  {formatArchiveJson(detail.apiRequest || detail.requestBody) || t('usage.archive.empty')}
-                </pre>
-                <h3>{t('usage.archive.rawResponse')}</h3>
-                <pre className="usage-archive-content">
-                  {detail.apiResponse || detail.responseBody || detail.apiErrorText || t('usage.archive.empty')}
-                </pre>
+                <p className="usage-archive-toolnames">{toolNames.join(', ')}</p>
+                <pre className="usage-archive-content">{formatArchiveJson(detail.toolsJson)}</pre>
               </>
-            ) : null}
-          </>
-        ) : null}
+            )
+          ) : null}
+
+          {detail && section === 'usage' ? (
+            <pre className="usage-archive-content">
+              {formatArchiveJson(detail.usageJson) || t('usage.archive.empty')}
+            </pre>
+          ) : null}
+
+          {detail && section === 'raw' ? (
+            <>
+              <h3 className="usage-archive-subhead">{t('usage.archive.rawRequest')}</h3>
+              <pre className="usage-archive-content">
+                {formatArchiveJson(detail.apiRequest || detail.requestBody) || t('usage.archive.empty')}
+              </pre>
+              <h3 className="usage-archive-subhead">{t('usage.archive.rawResponse')}</h3>
+              <pre className="usage-archive-content">
+                {detail.apiResponse || detail.responseBody || detail.apiErrorText || t('usage.archive.empty')}
+              </pre>
+            </>
+          ) : null}
+        </div>
       </section>
     </div>
   );
