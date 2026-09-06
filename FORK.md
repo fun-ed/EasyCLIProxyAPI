@@ -10,6 +10,63 @@
 
 ---
 
+## 0. 固定流程（日常只需要看這一節）
+
+```bash
+cd <workspace 根目錄>          # 例如 ~/temp/cliproxy-api
+
+./sync-and-build.sh --check    # 1. 先看 upstream 有沒有更新（只 fetch，不改任何東西）
+./sync-and-build.sh            # 2. 同步 + 建置 + 驗證 + 打包
+./EasyCLIProxyAPI/run.sh       # 3. 啟動
+```
+
+第 1 步可省略，直接跑第 2 步也會自己 fetch。`--check` 的離開碼可供排程判斷：`0` = 已是最新，`10` = 有更新待套用。
+
+腳本會自己 fetch、rebase、建置、驗證、打包。細節見 §6，衝突處理見 §6.2。
+
+### 成功長這樣
+
+結尾必須看到 Summary 區塊，且沒有 `FAILED:`：
+
+```
+==> Summary
+    CLIProxyAPI: unchanged (5208aec7)
+    Cli-Proxy-API-Management-Center: unchanged (87b7ce1)
+    EasyCLIProxyAPI: no rebase needed (73c8b36)
+    CLIProxyAPI: build OK
+    panel: installed to .../cpa-core/static/management.html
+    EasyCLIProxyAPI: bun test had the known i18n failure only
+    EasyCLIProxyAPI: verify OK
+    EasyCLIProxyAPI: packaged .../bin-work/EasyCLIProxyAPI-fork
+Done.
+```
+
+`bun test had the known i18n failure only` 是**正常的**，那是 upstream 既有問題（§8）。
+
+### 預期耗時
+
+| 情境 | 實測 |
+| --- | --- |
+| 無 upstream 更新，增量重建 | 約 1 分鐘 |
+| upstream 有更新，需 rebase + 完整重編 | 約 5 分鐘 |
+
+### 出事時的三張牌
+
+| 狀況 | 動作 |
+| --- | --- |
+| rebase 衝突 | 照 §3 的 patch inventory 解，然後 `./sync-and-build.sh --no-sync`（§6.2） |
+| 歸檔功能壞掉但想先用 app | `CPA_FORK_ARCHIVE=0 ./EasyCLIProxyAPI/run.sh`（§1.1） |
+| 腳本本身壞掉 | 走 §6.3 的手動流程 |
+
+### 這個流程的驗證狀態
+
+已在兩種情境實跑通過：
+
+1. **真實 upstream 前進**：upstream 從 `8575f4e` 推進 3 個 commit 到 `584c63b`（cpa-gui 0.2.72 → 0.2.73、核心 7.2.149 → 7.2.151），6 個 fork commit **零衝突** rebase，完成打包。
+2. **無更新增量重建**：三個 repo 皆為最新，1 分 08 秒完成全流程。
+
+---
+
 ## 1. Fork 身分
 
 | 項目 | 值 |
@@ -213,7 +270,7 @@ export const jaOverrides = {
 
 ## 6. Sync SOP
 
-### 6.1 一行指令（平常用這個）
+### 6.1 一行指令（平常用這個，摘要見 §0）
 
 ```bash
 cd <workspace 根目錄>
@@ -240,6 +297,7 @@ cd <workspace 根目錄>
 常用選項：
 
 ```bash
+./sync-and-build.sh --check        # 只回報 upstream 有無更新（exit 0=最新, 10=有更新）
 ./sync-and-build.sh --no-sync      # 不動 git，只重建
 ./sync-and-build.sh --no-package   # 跑完測試但跳過慢的 release build
 ./sync-and-build.sh --skip-core --skip-panel   # 只處理 fork
