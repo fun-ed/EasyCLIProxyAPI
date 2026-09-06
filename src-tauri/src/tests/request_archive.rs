@@ -451,3 +451,43 @@ fn model_is_recovered_from_gemini_style_paths_only() {
     assert_eq!(model_from_url(""), "");
     assert_eq!(model_from_url("/v1beta/models/"), "");
 }
+
+#[test]
+fn codex_attribution_is_dropped_while_the_totals_survive() {
+    let log = [
+        "=== REQUEST INFO ===",
+        "Version: 7.2.151",
+        "URL: /v1/responses",
+        "Method: POST",
+        "Timestamp: 2026-09-06T12:29:10.613903+08:00",
+        "",
+        "",
+        "=== REQUEST BODY ===",
+        r#"{"model":"gpt-5.6-terra","input":[]}"#,
+        "",
+        "",
+        "=== API RESPONSE ===",
+        r#"{"usage":{"attribution":{"items":{"ctc_call_a":{"input_tokens":525},"ctc_call_b":{"input_tokens":1799}}},"input_tokens":141335,"output_tokens":461,"total_tokens":141796}}"#,
+        "",
+        "",
+        "=== RESPONSE ===",
+        "Status: 200",
+        "",
+        "{}",
+    ]
+    .join("\n");
+
+    let parsed = testing::parse(&log);
+
+    assert_eq!(parsed.usage.input_tokens, 141335);
+    assert_eq!(parsed.usage.output_tokens, 461);
+    assert_eq!(parsed.usage.total_tokens, 141796);
+
+    let raw = parsed.usage.raw.expect("usage payload must be retained");
+    assert!(
+        raw.get("attribution").is_none(),
+        "the bulky attribution block must be dropped"
+    );
+    assert_eq!(raw.get("input_tokens").and_then(|v| v.as_i64()), Some(141335));
+    assert_eq!(raw.get("total_tokens").and_then(|v| v.as_i64()), Some(141796));
+}
