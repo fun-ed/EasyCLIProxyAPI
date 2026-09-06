@@ -82,7 +82,7 @@ Full sync and build in one command, from the workspace root:
 
 The fork adds a full request archive: it parses the core's `request-log`
 transcripts and stores them in a separate SQLite database at
-`<core base dir>/request-records/requests.db`. See `FORK.md` §9 for the schema,
+`<core base dir>/request-records/requests.db`. See `FORK.md` §10 for the schema,
 the three switches required to make it produce data, and the `commercial-mode`
 interaction that silently disables request logging entirely.
 

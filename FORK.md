@@ -128,6 +128,8 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 
 ```
 ┌─ A 區：純新增（零衝突）────────────────────────────────┐
+│  src-tauri/src/model_prices_dev.rs                     │
+│  src-tauri/src/tests/model_prices_dev.rs               │
 │  src-tauri/src/request_archive.rs                      │
 │  src-tauri/src/request_archive/parser.rs               │
 │  src-tauri/src/tests/request_archive.rs                │
@@ -487,13 +489,37 @@ git push -u origin feature/request-archive
 
 ---
 
-## 9. 功能速查：完整請求歸檔
+## 9. 功能速查：models.dev 價格來源
+
+upstream 的價格表是手工維護的（`src-tauri/resources/model_prices.json`，57 個模型），更新落後於新模型發布。實測 `claude-opus-5` 不在表內，導致 655 筆請求完全無法計價，而遠端鏡像與內建表是同一份、同一個日期，按「同步价格」也沒用。
+
+本 fork 把 **models.dev**（3326 個模型）加為主要來源：
+
+```
+models.dev/api.json  →  轉成既有 catalog 格式  →  upstream 既有的解析與儲存
+        ↓ 失敗
+upstream GitHub 價格表
+        ↓ 失敗
+內建 model_prices.json
+```
+
+手動設定的價格永遠優先，不受同步影響（upstream 既有行為）。
+
+**provider 優先序是關鍵**：models.dev 是 provider → models 的巢狀結構，同一個 model id 會出現在多個 provider 下且**價格不同**（`gpt-5.6-terra` 在 `openai` 是 2/12，在轉售商是 2.5/15）。直接迭代 `HashMap` 會因為 Rust 隨機化 hash 順序而**每次同步得到不同價格**。
+
+因此 `model_prices_dev.rs` 以固定順序走訪：`FIRST_PARTY_PROVIDERS` 清單優先，其餘依字母序，同一 model id 第一個 命中者勝出。`first_party_vendors_outrank_resellers_and_the_result_is_stable` 會連跑 8 次比對輸出是否逐字節相同。
+
+models.dev 的分層計價（`tiers` / `context_over_200k`）不會匯入，因為用量資料庫沒有對應欄位，只取基礎級距。
+
+---
+
+## 10. 功能速查：完整請求歸檔
 
 | 項目 | 值 |
 | --- | --- |
 | DB 路徑 | `<core base dir>/request-records/requests.db` |
 
-### 9.1 資料目錄依「怎麼打包」而不同（重要）
+### 10.1 資料目錄依「怎麼打包」而不同（重要）
 
 `core_base_dir()`（`core_runtime.rs:1361`）**只有執行檔位於 `.app` bundle 內時**才回傳共用目錄，否則回傳執行檔所在目錄：
 
@@ -509,7 +535,7 @@ git push -u origin feature/request-archive
 
 `.app` 版與正式版共用 `~/Library/Application Support/com.cpa.gui`（auth 檔、config、`usage.db` 都同一份），但**不可同時執行**，兩者會搶 port 8317。
 
-### 9.2 啟用歸檔的三個前提
+### 10.2 啟用歸檔的三個前提
 
 歸檔要出資料需要**三個條件同時成立**，缺一就是 0 筆：
 
@@ -530,7 +556,7 @@ grep -n "^request-log\|^commercial-mode" "$BASE/config.toml" "$BASE/cpa-core/con
 ls "$BASE/oauth/logs" | head        # 應該要有 v1-*.log 之類的逐請求檔，不只 main.log
 ```
 
-### 9.3 `commercial-mode` 會完全停用 request-log（最容易踩的坑）
+### 10.3 `commercial-mode` 會完全停用 request-log（最容易踩的坑）
 
 `internal/api/server.go:148`：
 
@@ -572,7 +598,7 @@ sqlite3 "$HOME/Library/Application Support/com.cpa.gui/request-records/requests.
 
 ---
 
-## 10. 變更本檔的時機
+## 11. 變更本檔的時機
 
 以下任一情況發生，**必須更新本檔**：
 
