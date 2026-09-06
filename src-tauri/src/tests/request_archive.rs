@@ -568,3 +568,36 @@ fn size_retention_stops_at_the_limit_instead_of_emptying_the_archive() {
 
     fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn logs_directory_size_counts_nested_spill_directories() {
+    let root = archive_test_root("logs-size");
+    let logs = root.join("logs");
+    let spill = logs.join("request-log-parts-api-request-1");
+    fs::create_dir_all(&spill).unwrap();
+
+    assert_eq!(crate::request_archive::testing::logs_bytes(&logs), 0);
+
+    fs::write(logs.join("v1-messages-2026-09-06T012139-a.log"), vec![b'x'; 1500]).unwrap();
+    // The core spills oversized bodies into nested temp directories, so a flat
+    // listing would under-report the directory by exactly the largest payloads.
+    fs::write(spill.join("part-0"), vec![b'y'; 2500]).unwrap();
+
+    assert_eq!(crate::request_archive::testing::logs_bytes(&logs), 4000);
+
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn only_per_request_transcripts_are_treated_as_archive_sources() {
+    use crate::request_archive::testing::is_log_candidate;
+
+    assert!(is_log_candidate("v1-messages-2026-09-06T012139-abc.log"));
+    assert!(is_log_candidate("v1beta-models-gemini-3-pro-generateContent-x-def.log"));
+
+    // The application log and spilled body fragments must never be ingested,
+    // and therefore must never be deleted as "already archived" either.
+    assert!(!is_log_candidate("main.log"));
+    assert!(!is_log_candidate("response-body-123.log"));
+    assert!(!is_log_candidate("notes.txt"));
+}

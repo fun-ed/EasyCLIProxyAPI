@@ -99,6 +99,7 @@ pub(crate) struct RequestArchiveStatus {
     pub database_bytes: i64,
     pub database_path: String,
     pub logs_directory: String,
+    pub logs_bytes: i64,
     pub last_ingested_at: String,
     pub last_error: String,
     pub oldest_record_at: String,
@@ -562,6 +563,46 @@ fn database_bytes(root: &Path) -> i64 {
     total
 }
 
+/// Whether a file in the log directory is a per-request transcript.
+///
+/// Shared by the scanner and the log purge so the two can never disagree about
+/// which files belong to the archive: `main.log` is the application log, and
+/// `response-body-*` files are spilled fragments referenced by a transcript.
+fn is_request_log_candidate(name: &str) -> bool {
+    name.ends_with(".log") && name != "main.log" && !name.starts_with("response-body-")
+}
+
+/// Total bytes held by the core's log directory.
+///
+/// Reported next to the database size because the two grow independently: the
+/// archive honours its own caps while the transcripts it reads are pruned by the
+/// core's `logs-max-total-size-mb`, so looking at either number alone hides half
+/// the disk usage.
+fn logs_directory_bytes(directory: &Path) -> i64 {
+    fn walk(directory: &Path, depth: usize) -> i64 {
+        if depth > 4 {
+            return 0;
+        }
+        let Ok(entries) = fs::read_dir(directory) else {
+            return 0;
+        };
+        let mut total = 0_i64;
+        for entry in entries.flatten() {
+            match entry.file_type() {
+                Ok(file_type) if file_type.is_dir() => total += walk(&entry.path(), depth + 1),
+                Ok(file_type) if file_type.is_file() => {
+                    if let Ok(metadata) = entry.metadata() {
+                        total += metadata.len() as i64;
+                    }
+                }
+                _ => {}
+            }
+        }
+        total
+    }
+    walk(directory, 0)
+}
+
 fn apply_retention(
     connection: &Connection,
     root: &Path,
@@ -657,8 +698,7 @@ fn scan_once(
         let Some(name) = path.file_name().map(|value| value.to_string_lossy().to_string()) else {
             continue;
         };
-        // main.log is the application log, not a per-request transcript.
-        if !name.ends_with(".log") || name == "main.log" || name.starts_with("response-body-") {
+        if !is_request_log_candidate(&name) {
             continue;
         }
         let Ok(metadata) = entry.metadata() else {
@@ -949,6 +989,7 @@ pub(crate) fn get_request_archive_status(
         .unwrap_or((None, None));
 
     let config = gui_config_state.snapshot()?;
+    let logs_directory = primary_logs_directory(&config.auth_dir)?;
     let (last_ingested_at, last_error) = app.state::<RequestArchiveState>().snapshot();
 
     Ok(RequestArchiveStatus {
@@ -962,9 +1003,8 @@ pub(crate) fn get_request_archive_status(
         record_count,
         database_bytes: database_bytes(&root),
         database_path: archive_database_path()?.to_string_lossy().to_string(),
-        logs_directory: primary_logs_directory(&config.auth_dir)?
-            .to_string_lossy()
-            .to_string(),
+        logs_directory: logs_directory.to_string_lossy().to_string(),
+        logs_bytes: logs_directory_bytes(&logs_directory),
         last_ingested_at,
         last_error,
         oldest_record_at: oldest.unwrap_or_default(),
@@ -1120,6 +1160,116 @@ pub(crate) fn get_request_archive_payloads(
         .map_err(|error| format!("读取请求原始报文失败: {error}"))
 }
 
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ArchiveMaintenanceResult {
+    pub removed_files: usize,
+    pub freed_bytes: i64,
+    pub skipped_files: usize,
+}
+
+/// Reclaims the space that deleted rows left behind.
+///
+/// SQLite keeps freed pages on a free list, so a database stays at its high water
+/// mark until it is rebuilt. Retention already does this automatically; this
+/// exposes it for the case where rows were removed some other way.
+#[tauri::command]
+pub(crate) fn compact_request_archive() -> Result<ArchiveMaintenanceResult, String> {
+    let root = archive_root_dir()?;
+    let before = database_bytes(&root);
+    let connection = open_archive_database_at(&root)?;
+    checkpoint_wal(&connection)?;
+    connection
+        .execute_batch("VACUUM")
+        .map_err(|error| format!("压缩请求归档数据库失败: {error}"))?;
+    checkpoint_wal(&connection)?;
+    Ok(ArchiveMaintenanceResult {
+        freed_bytes: (before - database_bytes(&root)).max(0),
+        ..ArchiveMaintenanceResult::default()
+    })
+}
+
+/// Deletes core transcripts that the archive has already stored.
+///
+/// A file is only removed once its `source_file` is present in the database, so
+/// the content survives the deletion. Files not yet ingested are counted as
+/// skipped rather than removed, and `main.log` is never touched.
+///
+/// Spill directories are temporary scratch space for oversized bodies; only
+/// those left behind by a finished request are cleared, hence the age cutoff.
+#[tauri::command]
+pub(crate) fn purge_ingested_request_logs(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<ArchiveMaintenanceResult, String> {
+    const STALE_SPILL_DIR_SECONDS: u64 = 1800;
+
+    let config = gui_config_state.snapshot()?;
+    let connection = open_archive_database()?;
+    let mut archived = std::collections::HashSet::new();
+    {
+        let mut statement = connection
+            .prepare("SELECT source_file FROM request_records")
+            .map_err(|error| format!("读取已归档来源失败: {error}"))?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| format!("读取已归档来源失败: {error}"))?;
+        for row in rows {
+            archived.insert(row.map_err(|error| format!("读取已归档来源失败: {error}"))?);
+        }
+    }
+
+    let mut result = ArchiveMaintenanceResult::default();
+    for directory in core_logs_directories(&config.auth_dir)? {
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+
+            if file_type.is_dir() {
+                let stale = entry
+                    .metadata()
+                    .ok()
+                    .and_then(|metadata| metadata.modified().ok())
+                    .and_then(|modified| modified.elapsed().ok())
+                    .is_some_and(|age| age.as_secs() > STALE_SPILL_DIR_SECONDS);
+                let is_spill = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("request-log-parts-"));
+                if is_spill && stale {
+                    let size = logs_directory_bytes(&path);
+                    if fs::remove_dir_all(&path).is_ok() {
+                        result.removed_files += 1;
+                        result.freed_bytes += size;
+                    }
+                }
+                continue;
+            }
+
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if !is_request_log_candidate(name) {
+                continue;
+            }
+            if !archived.contains(&path.to_string_lossy().to_string()) {
+                result.skipped_files += 1;
+                continue;
+            }
+            let size = entry.metadata().map(|m| m.len() as i64).unwrap_or(0);
+            if fs::remove_file(&path).is_ok() {
+                result.removed_files += 1;
+                result.freed_bytes += size;
+            }
+        }
+    }
+    Ok(result)
+}
+
 #[tauri::command]
 pub(crate) fn clear_request_archive(app: tauri::AppHandle) -> Result<(), String> {
     let root = archive_root_dir()?;
@@ -1212,5 +1362,13 @@ pub(crate) mod testing {
 
     pub(crate) fn messages_from_payload(payload: &str) -> String {
         super::parser::messages_from_payload(payload)
+    }
+
+    pub(crate) fn logs_bytes(directory: &Path) -> i64 {
+        logs_directory_bytes(directory)
+    }
+
+    pub(crate) fn is_log_candidate(name: &str) -> bool {
+        is_request_log_candidate(name)
     }
 }

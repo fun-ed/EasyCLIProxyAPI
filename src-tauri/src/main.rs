@@ -2710,6 +2710,8 @@ fn main() {
             request_archive::get_request_archive_record_by_request_id,
             request_archive::get_request_archive_payloads,
             request_archive::get_request_archive_models,
+            request_archive::compact_request_archive,
+            request_archive::purge_ingested_request_logs,
             request_archive::clear_request_archive,
             set_core_plugins_enabled,
             set_core_routing_strategy,

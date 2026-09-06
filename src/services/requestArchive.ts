@@ -18,6 +18,8 @@ export type RequestArchiveStatus = RequestArchiveSettings & {
   databaseBytes: number;
   databasePath: string;
   logsDirectory: string;
+  /** Bytes held by the core's log directory, which the archive does not control. */
+  logsBytes: number;
   lastIngestedAt: string;
   lastError: string;
   oldestRecordAt: string;
@@ -101,6 +103,15 @@ export const requestArchiveApi = {
     invoke<RequestArchiveDetail | null>('get_request_archive_record_by_request_id', { requestId }),
   models: () => invoke<string[]>('get_request_archive_models'),
   clear: () => invoke<void>('clear_request_archive'),
+  compact: () => invoke<ArchiveMaintenanceResult>('compact_request_archive'),
+  purgeLogs: () => invoke<ArchiveMaintenanceResult>('purge_ingested_request_logs'),
+};
+
+/** Outcome of a manual maintenance action. */
+export type ArchiveMaintenanceResult = {
+  removedFiles: number;
+  freedBytes: number;
+  skippedFiles: number;
 };
 
 export type ArchiveReadiness =
