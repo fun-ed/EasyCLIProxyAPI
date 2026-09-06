@@ -34,12 +34,38 @@ function useArchiveStatus() {
   return { status, error, refresh, setError };
 }
 
+/**
+ * Reports whether the fork-local request archive is compiled in and not killed by
+ * the CPA_FORK_ARCHIVE environment switch. Returns `null` while still resolving so
+ * callers can avoid flashing UI that is about to be hidden.
+ */
+export function useRequestArchiveAvailable(): boolean | null {
+  const [available, setAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    requestArchiveApi
+      .status()
+      .then((status) => active && setAvailable(!status.forkDisabled))
+      .catch(() => active && setAvailable(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return available;
+}
+
 export function RequestArchiveSettingsCard() {
   const { t } = useI18n();
   const { status, error, refresh, setError } = useArchiveStatus();
   const [saving, setSaving] = useState(false);
 
   const readiness = status ? archiveReadiness(status) : 'disabled';
+
+  if (status?.forkDisabled) {
+    return null;
+  }
 
   const persist = async (changes: Partial<RequestArchiveStatus>) => {
     if (!status) return;
@@ -214,6 +240,7 @@ const SECTION_ORDER: DetailSection[] = ['messages', 'system', 'tools', 'usage', 
 
 export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) {
   const { t } = useI18n();
+  const available = useRequestArchiveAvailable();
   const [detail, setDetail] = useState<RequestArchiveDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -246,6 +273,10 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
     [detail],
   );
   const toolNames = useMemo(() => (detail ? parseArchiveToolNames(detail.toolsJson) : []), [detail]);
+
+  if (available === false) {
+    return null;
+  }
 
   return (
     <div

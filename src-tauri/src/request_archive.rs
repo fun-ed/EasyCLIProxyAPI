@@ -65,9 +65,27 @@ impl RequestArchiveSettings {
     }
 }
 
+/// Kill switch for every fork-local request archive behaviour.
+///
+/// Setting `CPA_FORK_ARCHIVE` to `0`, `false`, `off` or `no` stops the ingester and
+/// hides the UI, which restores upstream behaviour without reverting any commit.
+pub(crate) const FORK_ARCHIVE_ENV: &str = "CPA_FORK_ARCHIVE";
+
+pub(crate) fn fork_archive_disabled_in(value: Option<&str>) -> bool {
+    matches!(
+        value.map(|raw| raw.trim().to_ascii_lowercase()).as_deref(),
+        Some("0") | Some("false") | Some("off") | Some("no")
+    )
+}
+
+pub(crate) fn fork_archive_disabled() -> bool {
+    fork_archive_disabled_in(std::env::var(FORK_ARCHIVE_ENV).ok().as_deref())
+}
+
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RequestArchiveStatus {
+    pub fork_disabled: bool,
     pub settings_enabled: bool,
     pub retention_days: u32,
     pub max_total_mb: u32,
@@ -649,6 +667,10 @@ fn scan_once(
 }
 
 pub(crate) fn start_request_archive_ingester(app: tauri::AppHandle) {
+    if fork_archive_disabled() {
+        eprintln!("请求归档已通过 {FORK_ARCHIVE_ENV} 关闭，跳过采集器启动");
+        return;
+    }
     let state = app.state::<RequestArchiveState>();
     let Some(token) = state.start() else {
         return;
@@ -862,6 +884,12 @@ pub(crate) fn get_request_archive_status(
     app: tauri::AppHandle,
     gui_config_state: tauri::State<'_, GuiConfigState>,
 ) -> Result<RequestArchiveStatus, String> {
+    if fork_archive_disabled() {
+        return Ok(RequestArchiveStatus {
+            fork_disabled: true,
+            ..RequestArchiveStatus::default()
+        });
+    }
     let root = archive_root_dir()?;
     let connection = open_archive_database_at(&root)?;
     let settings = load_settings(&connection);
@@ -880,6 +908,7 @@ pub(crate) fn get_request_archive_status(
     let (last_ingested_at, last_error) = app.state::<RequestArchiveState>().snapshot();
 
     Ok(RequestArchiveStatus {
+        fork_disabled: false,
         settings_enabled: settings.enabled,
         retention_days: settings.retention_days,
         max_total_mb: settings.max_total_mb,

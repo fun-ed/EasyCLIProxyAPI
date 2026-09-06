@@ -279,3 +279,27 @@ fn query_filters_translate_to_bound_sql() {
     assert!(empty_clause.is_empty());
     assert!(empty_values.is_empty());
 }
+
+#[test]
+fn fork_kill_switch_only_trips_on_explicit_negative_values() {
+    use crate::request_archive::fork_archive_disabled_in;
+
+    for value in ["0", "false", "off", "no", "FALSE", " Off ", "NO"] {
+        assert!(
+            fork_archive_disabled_in(Some(value)),
+            "{value:?} must disable the fork feature"
+        );
+    }
+
+    for value in ["1", "true", "on", "yes", "", "maybe"] {
+        assert!(
+            !fork_archive_disabled_in(Some(value)),
+            "{value:?} must leave the fork feature enabled"
+        );
+    }
+
+    assert!(
+        !fork_archive_disabled_in(None),
+        "an unset variable must leave the fork feature enabled"
+    );
+}
