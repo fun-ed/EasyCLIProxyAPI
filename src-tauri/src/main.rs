@@ -28,6 +28,7 @@ mod plugins;
 mod privacy_mode;
 mod progress;
 mod provider_health;
+mod model_prices_dev;
 mod request_archive;
 #[cfg(any(
     target_os = "linux",

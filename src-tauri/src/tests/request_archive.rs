@@ -491,3 +491,4 @@ fn codex_attribution_is_dropped_while_the_totals_survive() {
     assert_eq!(raw.get("input_tokens").and_then(|v| v.as_i64()), Some(141335));
     assert_eq!(raw.get("total_tokens").and_then(|v| v.as_i64()), Some(141796));
 }
+

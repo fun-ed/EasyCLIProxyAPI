@@ -74,7 +74,7 @@ cd EasyCLIProxyAPI
 | **`.app` bundle** | `~/Library/Application Support/com.cpa.gui` | **與官方版共用**，看得到你的憑證與用量記錄 |
 | 可攜版 | 執行檔旁邊的 `bin-work/` | **自帶一份空白 profile**：沒有憑證、沒有用量、歸檔永遠 0 筆 |
 
-這是 upstream 的設計（可攜版本來就該自我包含），不是 bug。**要用真實資料測試就一定要建 `.app`。** 原理見 `FORK.md` §9.1。
+這是 upstream 的設計（可攜版本來就該自我包含），不是 bug。**要用真實資料測試就一定要建 `.app`。** 原理見 `FORK.md` §10.1。
 
 兩個版本**不可同時執行**，會搶 port 8317：
 
@@ -93,7 +93,7 @@ pgrep -fl "cpa-gui|cli-proxy-api" || echo "已全部關閉"
 2. **同一張卡片上開啟「核心 request-log」** — 這是資料來源，預設關閉，而且本 fork 的這張卡片是整個 app 唯一能開它的地方
 3. **進階設定關閉「商用模式」並重啟核心** — 商用模式會讓核心完全跳過請求日誌 middleware，`request-log` 開了也沒用，且**不會有任何錯誤訊息**
 
-第 3 點最容易踩，詳見 `FORK.md` §9.3。
+第 3 點最容易踩，詳見 `FORK.md` §10.3。
 
 驗證三個條件：
 
