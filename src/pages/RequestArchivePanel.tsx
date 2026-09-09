@@ -12,6 +12,7 @@ import {
   requestArchiveApi,
   requestArchiveSettingsDraft,
   requestArchiveSettingsFromDraft,
+  requestArchiveStatusMatchesSettings,
   type RequestArchiveDetail,
   type RequestArchivePayloads,
   type RequestArchiveSettingsDraft,
@@ -25,10 +26,13 @@ function useArchiveStatus() {
 
   const refresh = useCallback(async () => {
     try {
-      setStatus(await requestArchiveApi.status());
+      const nextStatus = await requestArchiveApi.status();
+      setStatus(nextStatus);
       setError('');
+      return nextStatus;
     } catch (statusError) {
       setError(String(statusError));
+      return null;
     }
   }, []);
 
@@ -84,12 +88,26 @@ export function RequestArchiveSettingsCard() {
     return null;
   }
 
-  const saveSettings = async () => {
-    if (!settings) return;
+  const saveSettings = async (form: HTMLFormElement) => {
+    const values = new FormData(form);
+    const submitted = requestArchiveSettingsFromDraft({
+      enabled: values.get('enabled') === 'on',
+      retentionDays: String(values.get('retentionDays') ?? ''),
+      maxTotalMb: String(values.get('maxTotalMb') ?? ''),
+      maxBodyKb: String(values.get('maxBodyKb') ?? ''),
+      logsMaxMb: String(values.get('logsMaxMb') ?? ''),
+    });
+    if (!submitted) return;
     setSaving(true);
+    setNotice('');
     try {
-      await requestArchiveApi.saveSettings(settings);
-      await refresh();
+      await requestArchiveApi.saveSettings(submitted);
+      const refreshed = await refresh();
+      if (refreshed && requestArchiveStatusMatchesSettings(refreshed, submitted)) {
+        setNotice(t('usage.archive.settingsSaved'));
+      } else if (refreshed) {
+        setError(t('usage.archive.settingsSaveVerificationFailed'));
+      }
     } catch (saveError) {
       setError(String(saveError));
     } finally {
@@ -193,13 +211,14 @@ export function RequestArchiveSettingsCard() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void saveSettings();
+              void saveSettings(event.currentTarget);
             }}
           >
             <div className="usage-archive-switches">
               <label className="usage-archive-switch">
                 <input
                   type="checkbox"
+                  name="enabled"
                   checked={draft?.enabled ?? status.settingsEnabled}
                   disabled={saving}
                   onChange={(event) =>
@@ -217,6 +236,7 @@ export function RequestArchiveSettingsCard() {
                 <span>{t('usage.archive.retentionDays')}</span>
                 <input
                   type="number"
+                  name="retentionDays"
                   min={0}
                   max={3650}
                   value={draft?.retentionDays ?? String(status.retentionDays)}
@@ -228,6 +248,7 @@ export function RequestArchiveSettingsCard() {
                 <span>{t('usage.archive.maxTotalMb')}</span>
                 <input
                   type="number"
+                  name="maxTotalMb"
                   min={0}
                   max={1048576}
                   value={draft?.maxTotalMb ?? String(status.maxTotalMb)}
@@ -239,6 +260,7 @@ export function RequestArchiveSettingsCard() {
                 <span>{t('usage.archive.logsMaxMb')}</span>
                 <input
                   type="number"
+                  name="logsMaxMb"
                   min={0}
                   max={1048576}
                   value={draft?.logsMaxMb ?? String(status.logsMaxMb)}
@@ -250,6 +272,7 @@ export function RequestArchiveSettingsCard() {
                 <span>{t('usage.archive.maxBodyKb')}</span>
                 <input
                   type="number"
+                  name="maxBodyKb"
                   min={16}
                   max={65536}
                   value={draft?.maxBodyKb ?? String(status.maxBodyKb)}
@@ -446,7 +469,7 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
               <span>{detail.method}</span>
               <span>{detail.endpoint}</span>
               <span>{detail.model || '—'}</span>
-              <span>HTTP {detail.httpStatus}</span>
+              <span>{t('usage.archive.httpStatus', { status: String(detail.httpStatus) })}</span>
               <span>{detail.capturedAt}</span>
               {detail.truncated ? (
                 <span className="usage-archive-truncated">{t('usage.archive.truncated')}</span>

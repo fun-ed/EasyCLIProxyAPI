@@ -164,6 +164,22 @@ export function requestArchiveSettingsFromDraft(
   };
 }
 
+export function requestArchiveStatusMatchesSettings(
+  status: Pick<
+    RequestArchiveStatus,
+    'settingsEnabled' | 'retentionDays' | 'maxTotalMb' | 'maxBodyKb' | 'logsMaxMb'
+  >,
+  settings: RequestArchiveSettings,
+): boolean {
+  return (
+    status.settingsEnabled === settings.enabled &&
+    status.retentionDays === settings.retentionDays &&
+    status.maxTotalMb === settings.maxTotalMb &&
+    status.maxBodyKb === settings.maxBodyKb &&
+    status.logsMaxMb === settings.logsMaxMb
+  );
+}
+
 /** Outcome of a manual maintenance action. */
 export type ArchiveMaintenanceResult = {
   removedFiles: number;

@@ -813,6 +813,22 @@ fn scan_once(
     }
     let entries = fs::read_dir(logs_dir)
         .map_err(|error| format!("读取日志目录失败 {}: {error}", logs_dir.display()))?;
+    let mut archived_fingerprints = std::collections::HashMap::new();
+    {
+        let mut statement = connection
+            .prepare("SELECT source_file, source_fingerprint FROM request_records")
+            .map_err(|error| format!("准备请求归档来源查询失败: {error}"))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| format!("查询请求归档来源失败: {error}"))?;
+        for row in rows {
+            let (source_file, fingerprint) =
+                row.map_err(|error| format!("读取请求归档来源失败: {error}"))?;
+            archived_fingerprints.insert(source_file, fingerprint);
+        }
+    }
     let now = SystemTime::now();
     let mut candidates: Vec<(i64, PathBuf)> = Vec::new();
     for entry in entries.flatten() {
@@ -829,6 +845,9 @@ fn scan_once(
         let Ok(metadata) = entry.metadata() else {
             continue;
         };
+        if archived_fingerprints.get(&name) == Some(&file_fingerprint(&metadata)) {
+            continue;
+        }
         if let Ok(modified) = metadata.modified() {
             if now
                 .duration_since(modified)
