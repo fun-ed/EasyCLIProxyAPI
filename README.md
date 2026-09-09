@@ -158,7 +158,8 @@ Manually renamed files without a session ID in their filename or a database path
 - Archive full request transcripts (system prompt, messages, tool calls, usage, HTTP status, raw
   payloads) from the core request log into a dedicated SQLite database, then browse them from
   **Usage → Request Details**. The archive is opt-in, keeps the original log files untouched, and
-  supports retention by age and database size.
+  supports retention by age, database size, and a separate recursive log-directory cap. Archive
+  settings apply only after selecting **Save settings**.
 - Keep the application available from the macOS menu bar or Windows system tray.
 
 ## Custom Themes
