@@ -3,6 +3,7 @@
 // line inside each locale file instead of a 30+ line block.
 
 export const requestArchiveZhCN = {
+  'fork.appName': 'EasyCLIProxyAPI-fork',
   'usage.archive.title': '完整请求归档',
   'usage.archive.description':
     '解析核心的 request-log 日志，把系统提示词、消息、工具、用量与 HTTP 状态存入独立的 SQLite 数据库。',
@@ -17,6 +18,8 @@ export const requestArchiveZhCN = {
   'usage.archive.maxBodyKb': '单字段上限 KB',
   'usage.archive.logsMaxMb': '日志目录上限 MB（0 表示交给内核）',
   'usage.archive.saveSettings': '保存设置',
+  'usage.archive.settingsSaved': '设置已保存。',
+  'usage.archive.settingsSaveVerificationFailed': '设置未通过重新读取验证，请再次检查后保存。',
   'usage.archive.recordCount': '已归档记录',
   'usage.archive.databaseSize': '数据库占用',
   'usage.archive.logsSize': '日志目录占用',
@@ -33,6 +36,7 @@ export const requestArchiveZhCN = {
   'usage.archive.maintenanceResult': '处理完成：清理 {files} 项，释放 {freed}，跳过未归档 {skipped} 项。',
   'usage.archive.clearConfirm': '确定清空全部请求归档记录吗？原始日志文件会保留。',
   'usage.archive.detailTitle': '请求完整内容',
+  'usage.archive.httpStatus': 'HTTP {status}',
   'usage.archive.close': '关闭',
   'usage.archive.loading': '正在读取归档内容…',
   'usage.archive.notFound':
@@ -52,6 +56,7 @@ export const requestArchiveZhCN = {
 export type RequestArchiveMessageKey = keyof typeof requestArchiveZhCN;
 
 export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
+  'fork.appName': 'EasyCLIProxyAPI-fork',
   'usage.archive.title': 'Full Request Archive',
   'usage.archive.description':
     "Parses the core's request-log transcripts and stores system prompts, messages, tools, usage, and HTTP status in a separate SQLite database.",
@@ -67,6 +72,9 @@ export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.maxBodyKb': 'Per-field cap in KB',
   'usage.archive.logsMaxMb': 'Logs directory cap in MB (0 defers to the core)',
   'usage.archive.saveSettings': 'Save settings',
+  'usage.archive.settingsSaved': 'Settings saved.',
+  'usage.archive.settingsSaveVerificationFailed':
+    'The refreshed settings did not match the submitted values. Review them and save again.',
   'usage.archive.recordCount': 'Archived records',
   'usage.archive.databaseSize': 'Database size',
   'usage.archive.logsSize': 'Logs directory size',
@@ -84,6 +92,7 @@ export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.clearConfirm':
     'Clear every archived request record? The original log files are kept.',
   'usage.archive.detailTitle': 'Full Request Content',
+  'usage.archive.httpStatus': 'HTTP {status}',
   'usage.archive.close': 'Close',
   'usage.archive.loading': 'Loading archived content…',
   'usage.archive.notFound':
@@ -101,6 +110,7 @@ export const requestArchiveEn: Record<RequestArchiveMessageKey, string> = {
 };
 
 export const requestArchiveJa: Record<RequestArchiveMessageKey, string> = {
+  'fork.appName': 'EasyCLIProxyAPI-fork',
   'usage.archive.title': '完全リクエストアーカイブ',
   'usage.archive.description':
     'コアの request-log を解析し、システムプロンプト・メッセージ・ツール・使用量・HTTP ステータスを独立した SQLite データベースに保存します。',
@@ -116,6 +126,9 @@ export const requestArchiveJa: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.maxBodyKb': 'フィールドごとの上限 KB',
   'usage.archive.logsMaxMb': 'ログディレクトリ上限 MB（0 はコアに委ねる）',
   'usage.archive.saveSettings': '設定を保存',
+  'usage.archive.settingsSaved': '設定を保存しました。',
+  'usage.archive.settingsSaveVerificationFailed':
+    '再読み込みした設定が送信した値と一致しません。確認してからもう一度保存してください。',
   'usage.archive.recordCount': 'アーカイブ済み件数',
   'usage.archive.databaseSize': 'データベース使用量',
   'usage.archive.logsSize': 'ログディレクトリ使用量',
@@ -133,6 +146,7 @@ export const requestArchiveJa: Record<RequestArchiveMessageKey, string> = {
   'usage.archive.clearConfirm':
     'アーカイブ済みのリクエスト記録をすべて削除しますか？元のログファイルは保持されます。',
   'usage.archive.detailTitle': 'リクエストの完全な内容',
+  'usage.archive.httpStatus': 'HTTP {status}',
   'usage.archive.close': '閉じる',
   'usage.archive.loading': 'アーカイブ内容を読み込んでいます…',
   'usage.archive.notFound':

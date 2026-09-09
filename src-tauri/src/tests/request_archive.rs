@@ -209,6 +209,56 @@ fn scan_skips_application_log_and_spilled_bodies() {
 }
 
 #[test]
+fn scan_reaches_new_logs_after_the_first_batch_is_already_archived() {
+    let root = archive_test_root("scan-past-archived-batch");
+    let logs = root.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+    let old = SystemTime::now() - Duration::from_secs(120);
+
+    // Fill one complete scan batch with logs that are already archived.
+    for index in 0..200 {
+        let path = logs.join(format!(
+            "v1-messages-2026-09-06T0121{index:03}-old-{index}.log"
+        ));
+        fs::write(&path, sample_log(&format!("old-{index}"))).unwrap();
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(old).unwrap();
+    }
+
+    let connection = testing::open_database(&root).unwrap();
+    let settings = RequestArchiveSettings {
+        enabled: true,
+        ..RequestArchiveSettings::default()
+    };
+    assert_eq!(
+        testing::scan(&connection, &root, &logs, settings).unwrap(),
+        200
+    );
+
+    let newest = logs.join("v1-messages-2026-09-06T022139-new-request.log");
+    fs::write(&newest, sample_log("new-request")).unwrap();
+    let file = fs::File::options().write(true).open(&newest).unwrap();
+    file.set_modified(SystemTime::now() - Duration::from_secs(60))
+        .unwrap();
+
+    assert_eq!(
+        testing::scan(&connection, &root, &logs, settings).unwrap(),
+        1,
+        "already archived files must not consume the next scan batch"
+    );
+    let archived: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM request_records WHERE request_id = 'new-request'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(archived, 1);
+
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
 fn retention_removes_records_older_than_the_configured_window() {
     let root = archive_test_root("retention");
     let connection = testing::open_database(&root).unwrap();
@@ -268,6 +318,25 @@ fn settings_round_trip_and_clamp_body_limit() {
     assert_eq!(loaded.max_total_mb, 100);
     // A one-kilobyte cap would truncate every payload; the floor keeps it usable.
     assert_eq!(loaded.max_body_kb, 16);
+
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn settings_round_trip_preserves_database_cap() {
+    let root = archive_test_root("database-cap");
+    let connection = testing::open_database(&root).unwrap();
+
+    testing::save(
+        &connection,
+        RequestArchiveSettings {
+            max_total_mb: 1_024,
+            ..RequestArchiveSettings::default()
+        },
+    )
+    .unwrap();
+
+    assert_eq!(testing::settings(&connection).max_total_mb, 1_024);
 
     fs::remove_dir_all(&root).ok();
 }

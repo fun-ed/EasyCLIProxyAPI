@@ -7,6 +7,7 @@ import {
   parseArchiveToolNames,
   requestArchiveSettingsDraft,
   requestArchiveSettingsFromDraft,
+  requestArchiveStatusMatchesSettings,
 } from '../src/services/requestArchive';
 
 describe('archiveReadiness', () => {
@@ -191,6 +192,46 @@ describe('request archive settings draft', () => {
       maxTotalMb: 6144,
       maxBodyKb: 4096,
       logsMaxMb: 1024,
+    });
+  });
+
+  describe('request archive settings confirmation', () => {
+    const requested = {
+      enabled: true,
+      retentionDays: 30,
+      maxTotalMb: 1024,
+      maxBodyKb: 4096,
+      logsMaxMb: 2048,
+    };
+
+    it('accepts a refreshed status that matches the requested settings', () => {
+      expect(
+        requestArchiveStatusMatchesSettings(
+          {
+            settingsEnabled: true,
+            retentionDays: 30,
+            maxTotalMb: 1024,
+            maxBodyKb: 4096,
+            logsMaxMb: 2048,
+          },
+          requested,
+        ),
+      ).toBe(true);
+    });
+
+    it('rejects a refreshed database cap that differs from the requested value', () => {
+      expect(
+        requestArchiveStatusMatchesSettings(
+          {
+            settingsEnabled: true,
+            retentionDays: 30,
+            maxTotalMb: 512,
+            maxBodyKb: 4096,
+            logsMaxMb: 2048,
+          },
+          requested,
+        ),
+      ).toBe(false);
     });
   });
 
