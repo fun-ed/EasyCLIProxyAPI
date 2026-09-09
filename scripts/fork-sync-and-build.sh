@@ -52,11 +52,12 @@ Options:
   --skip-app      Skip the EasyCLIProxyAPI fork (sync + build).
   --no-verify     Skip the fork test suites (tsc, bun test, cargo test).
   --no-package    Run the fork test suites but skip the slow ./build.sh release build.
-  --app           Also build a macOS .app bundle. Required if you want the fork to
-                  share the real profile in ~/Library/Application Support/com.cpa.gui;
-                  the portable ./build.sh output keeps its own blank profile instead.
-  --app-only      Build only the .app bundle: implies --app, --no-sync and skips the
-                  core and panel. Fastest way to pick up a source change.
+  --app           Also build a macOS .app bundle and DMG. Required if you want the
+                  fork to share the real profile in
+                  ~/Library/Application Support/com.cpa.gui; the portable
+                  ./build.sh output keeps its own blank profile instead.
+  --app-only      Build only the .app bundle and DMG: implies --app, --no-sync and
+                  skips the core and panel. Fastest way to pick up a source change.
   -h, --help      Show this help.
 
 Environment:
@@ -252,7 +253,8 @@ verify_app() {
   ( cd "$APP_DIR" && bun install >/dev/null )
   ( cd "$APP_DIR" && bun run check )
   info "tsc clean"
-  # The i18n suite has a known upstream failure, so report instead of aborting.
+  # Current upstream passes the full suite. Keep the historical i18n exception
+  # so an older fork base can still use this script while being rebased.
   if ( cd "$APP_DIR" && bun test >/tmp/cpa-bun-test.log 2>&1 ); then
     info "bun test: all passed"
   else
@@ -326,15 +328,22 @@ check_updates() {
 }
 
 # Unlike the portable ./build.sh output, a .app bundle satisfies the core's
-# base-directory probe and therefore shares the real profile.
+# base-directory probe and therefore shares the real profile. Tauri produces
+# the matching DMG in the same build.
 bundle_app() {
-  step "EasyCLIProxyAPI: .app bundle"
+  step "EasyCLIProxyAPI: .app bundle and DMG"
   ( cd "$APP_DIR" && bun tauri build )
   local app="$APP_DIR/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app"
+  local dmg
+  dmg="$(find "$APP_DIR/src-tauri/target/release/bundle/dmg" -maxdepth 1 -type f \
+    -name 'EasyCLIProxyAPI-fork_*.dmg' -print | sort | tail -1)"
   [ -d "$app" ] || die "bundle finished but $app is missing"
+  [ -n "$dmg" ] && [ -f "$dmg" ] || die "bundle finished but no EasyCLIProxyAPI-fork DMG was found"
   info "built $app"
+  info "built $dmg"
   info "launch with: open \"$app\""
   note "EasyCLIProxyAPI: bundled $app"
+  note "EasyCLIProxyAPI: DMG $dmg"
 }
 
 main() {
@@ -374,7 +383,11 @@ main() {
   printf '\n\033[1;32mDone.\033[0m\n'
   if [ "$DO_APP_BUNDLE" = 1 ]; then
     local app="$APP_DIR/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app"
+    local dmg
+    dmg="$(find "$APP_DIR/src-tauri/target/release/bundle/dmg" -maxdepth 1 -type f \
+      -name 'EasyCLIProxyAPI-fork_*.dmg' -print | sort | tail -1)"
     printf 'Launch (shares the real profile):  open "%s"\n' "$app"
+    printf 'Installable DMG:                 %s\n' "$dmg"
     printf 'Emergency rollback of the archive: CPA_FORK_ARCHIVE=0 open "%s"\n\n' "$app"
   elif [ "$DO_PACKAGE" = 1 ] && [ "$DO_APP" = 1 ]; then
     printf 'Launch (portable, keeps its OWN blank profile): ./EasyCLIProxyAPI/run.sh\n'

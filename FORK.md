@@ -16,18 +16,18 @@
 cd <workspace 根目錄>          # 例如 ~/temp/cliproxy-api
 
 ./sync-and-build.sh --check    # 1. 先看 upstream 有沒有更新（只 fetch，不改任何東西）
-./sync-and-build.sh --app      # 2. 同步 + 建置 + 驗證 + 打包 + 產生 .app
+./sync-and-build.sh --app      # 2. 同步 + 驗證 + 打包 + 產生 .app 與 DMG
 open EasyCLIProxyAPI/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 ```
 
 第 1 步可省略，直接跑第 2 步也會自己 fetch。`--check` 的離開碼可供排程判斷：`0` = 已是最新，`10` = 有更新待套用。
 
-> **一定要加 `--app`。** 不加只會產出 `bin-work/` 的可攜版，那個版本**自帶一份空白 profile**（沒有你的憑證、沒有用量記錄、歸檔永遠 0 筆）。原因見 §9.1。
+> **一定要加 `--app`。** 不加只會產出 `bin-work/` 的可攜版，那個版本**自帶一份空白 profile**（沒有你的憑證、沒有用量記錄、歸檔永遠 0 筆）。`--app` 會同時產生共用真實 profile 的 `.app` 與可安裝的 DMG。原因見 §9.1。
 
 只改了程式碼、想最快看到結果：
 
 ```bash
-./sync-and-build.sh --app-only    # 跳過 git 與核心/面板，只驗證 + 出 .app，約 1 分鐘
+./sync-and-build.sh --app-only    # 跳過 git 與核心/面板，只驗證 + 出 .app 與 DMG
 ```
 
 腳本會自己 fetch、rebase、建置、驗證、打包。細節見 §6，衝突處理見 §6.2，手動指令見 §6.4。
@@ -43,13 +43,14 @@ open EasyCLIProxyAPI/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.
     EasyCLIProxyAPI: no rebase needed (73c8b36)
     CLIProxyAPI: build OK
     panel: installed to .../cpa-core/static/management.html
-    EasyCLIProxyAPI: bun test had the known i18n failure only
     EasyCLIProxyAPI: verify OK
     EasyCLIProxyAPI: packaged .../bin-work/EasyCLIProxyAPI-fork
+    EasyCLIProxyAPI: bundled .../bundle/macos/EasyCLIProxyAPI-fork.app
+    EasyCLIProxyAPI: DMG .../bundle/dmg/EasyCLIProxyAPI-fork_<版本>_<架構>.dmg
 Done.
 ```
 
-`bun test had the known i18n failure only` 是**正常的**，那是 upstream 既有問題（§8）。
+目前 upstream 的 `bun test` 全部通過。腳本仍保留舊版 i18n 缺鍵的相容判斷，方便較舊 fork base 在 rebase 前使用，但最新基底不應出現該警告。
 
 ### 預期耗時
 
@@ -72,6 +73,8 @@ Done.
 
 1. **真實 upstream 前進**：upstream 從 `8575f4e` 推進 3 個 commit 到 `584c63b`（cpa-gui 0.2.72 → 0.2.73、核心 7.2.149 → 7.2.151），6 個 fork commit **零衝突** rebase，完成打包。
 2. **無更新增量重建**：三個 repo 皆為最新，1 分 08 秒完成全流程。
+3. **2026-09-07 upstream sync**：核心更新到 `934fb792`，GUI rebase 到 `75fac19`（cpa-gui 0.2.76、核心 bundle 7.2.152）。處理 i18n 與 fork 名稱兩組預期衝突後，完整測試、portable、`.app` 與 DMG 建置完成。
+4. **2026-09-09 upstream sync**：核心更新到 `7fac6b15`，面板更新到 `ed5f1c4`，GUI rebase 到 `5548324`（cpa-gui 0.2.80、核心 bundle 7.2.154）。完整測試、`.app` 與 DMG 建置完成。
 
 ---
 
@@ -81,21 +84,32 @@ Done.
 | --- | --- |
 | Upstream | `router-for-me/EasyCLIProxyAPI`（目前就是 `origin`） |
 | 工作分支 | `feature/request-archive` |
-| Fork 基底 | `584c63b` — `fix(version): update cpa-gui version to 0.2.73` |
+| Fork 基底 | `5548324` — `fix: update cpa-gui version to 0.2.80` |
+| GUI 版本 | `src-tauri/Cargo.toml` = `0.2.80` |
 | Git 身分（repo local） | `fun-ed <git-ed@runbox.no>` |
-| 核心版本綁定 | `core-version.txt` = `7.2.151` |
+| 核心版本綁定 | `core-version.txt` = `7.2.154` |
 | 產出執行檔 | `bin-work/EasyCLIProxyAPI-fork` |
 | 資料目錄 | `~/Library/Application Support/com.cpa.gui`（**與官方版共用**） |
 
 ### Fork commit 清單
 
-依序疊在 upstream 之上，**每個 commit 都可獨立 revert**：
+完整清單以 git 為準：
 
-| Commit | 內容 | 可否單獨拿掉 |
-| --- | --- | --- |
-| `07f2ae4` | `feat(usage)`：完整請求歸檔（request archive） | 可 |
-| `5c5004f` | `chore(fork)`：改名為 `EasyCLIProxyAPI-fork` | 可 |
-| `ddefcbf` | `feat(fork)`：`CPA_FORK_ARCHIVE` 總開關 | 可 |
+```bash
+git log --reverse --oneline origin/main..HEAD
+```
+
+主要定位點：
+
+| Commit | 內容 |
+| --- | --- |
+| `5df44aa` | 完整請求歸檔基礎 |
+| `714376d` | 產品名稱改為 `EasyCLIProxyAPI-fork` |
+| `c02d9f9` | `CPA_FORK_ARCHIVE` 總開關 |
+| `948720d` | 一鍵 upstream sync 與本機建置 |
+| `4953bce` | 歸檔設定改為明確儲存與重新讀取確認 |
+
+rebase 會重寫上述 hash。定位時先看 commit subject，不要把 hash 寫進自動化。
 
 ## 1.1 緊急停用（kill switch）
 
@@ -140,7 +154,8 @@ CPA_FORK_ARCHIVE=0 ./bin-work/EasyCLIProxyAPI-fork
 │  src/styles/requestArchive.css                         │
 │  tests/requestArchive.test.ts                          │
 │  scripts/fork-sync-and-build.sh                        │
-│  FORK.md  AGENTS.md  README.fork.md                    │
+│  FORK.md  CHANGELOG.md  AGENTS.md  CLAUDE.md           │
+│  README.fork.md                                        │
 └────────────────────────────────────────────────────────┘
 ┌─ B 區：整合點（rebase 時可能衝突，共 116 行）──────────┐
 │  src-tauri/src/main.rs                    18 行        │
@@ -320,9 +335,9 @@ cd <workspace 根目錄>
 | 4 | 核心 `go build` 編譯檢查 + gofmt 檢查 | 只警告不阻擋 gofmt |
 | 5 | 面板 `bun run build` → 安裝到 `<core install dir>/static/management.html` | 內容相同則跳過複製 |
 | 6 | 把核心 config 的 `disable-auto-update-panel` 釘成 `true` | 否則核心每 3 小時會用 GitHub 版覆蓋你的本機 build |
-| 7 | fork `bun install` / `bun run check` / `bun test` / `cargo test` | i18n 既有失敗只警告；cargo 失敗會重試一次以排除 §8 的 flake |
+| 7 | fork `bun install` / `bun run check` / `bun test` / `cargo test` | 最新 upstream 應全綠；cargo 失敗會重試一次以排除 §8 的 flake |
 | 8 | fork `./build.sh` → `bin-work/EasyCLIProxyAPI-fork`（可攜版） | — |
-| 9 | 加 `--app` 時額外 `bun tauri build` → `.app` bundle | 這才是共用真實 profile 的版本 |
+| 9 | 加 `--app` 時額外 `bun tauri build` → `.app` + DMG | 腳本會檢查兩個產物都存在，並把路徑寫進 Summary |
 
 所有 repo 在動之前都會檢查工作區乾淨，有未提交改動就中止。
 
@@ -330,8 +345,8 @@ cd <workspace 根目錄>
 
 ```bash
 ./sync-and-build.sh --check        # 只回報 upstream 有無更新（exit 0=最新, 10=有更新）
-./sync-and-build.sh --app          # 同步 + 全部建置 + 額外產生 .app bundle
-./sync-and-build.sh --app-only     # 只驗證 + 出 .app（跳過 git、核心、面板），約 1 分鐘
+./sync-and-build.sh --app          # 同步 + 全部建置 + 額外產生 .app 與 DMG
+./sync-and-build.sh --app-only     # 只驗證 + 出 .app 與 DMG（跳過 git、核心、面板）
 ./sync-and-build.sh --no-sync      # 不動 git，只重建
 ./sync-and-build.sh --no-package   # 跑完測試但跳過慢的 release build
 ./sync-and-build.sh --skip-core --skip-panel   # 只處理 fork
@@ -465,9 +480,10 @@ git push -u origin feature/request-archive
 
 ## 8. 已知問題
 
+upstream 從 0.2.76 起已補齊舊的日文 i18n 缺鍵，`bun test` 現在應全部通過。sync 腳本保留舊基底的相容判斷，但新建置若再出現 localization failure，必須當成真正回歸處理。
+
 | 問題 | 狀態 |
 | --- | --- |
-| `tests/i18n.test.ts` 失敗：`jaOverrides` 比 `zhCN` 少 50 個 key | **upstream 既有問題**，非本 fork 造成。fork 前後缺口都是 50，且沒有任何 `usage.archive.*` 在缺漏清單裡。**不要為了讓它綠掉而亂補 key**，先確認缺口數字仍是 50 即可。sync 腳本會辨識這一筆並只發警告 |
 | `tests::instance_lock::app_instance_guard_rejects_a_second_copy_and_releases_on_drop` 偶發失敗 | **upstream 既有 flake**。該測試用固定目錄 `agent_test_home("instance-lock")`，全套並行時偶爾輸給 OS 檔案鎖的釋放時序。單獨執行必過；連跑三次全套也全過。sync 腳本失敗時會自動重試一次 |
 | 成功請求（含 usage / token 數）未實測 | 解析器已用**真實核心產出的 log** 驗證三種 provider 形狀（見 §8.1），但那三筆都是 HTTP 400 失敗請求。`usage_json` 與 token 欄位的擷取仍只有合成樣本覆蓋，需要一筆真實成功請求才算完整 |
 | UI 渲染未實測 | 詳情對話框五個分頁的實際渲染尚未在真實資料上目視確認 |
@@ -614,19 +630,21 @@ if !cfg.CommercialMode {
 
 歸檔卡片已會偵測此狀態：`archiveReadiness()` 回傳 `'commercial-mode'`，顯示紅字說明並把 request-log 開關禁用（避免使用者以為開了就會有效）。
 | 主表 | `request_records`（38 欄）、`archive_metadata`（設定） |
-| 掃描間隔 | 5 秒，單次最多 200 檔 |
+| 掃描間隔 | 5 秒；先排除 fingerprint 未變的已歸檔檔案，再處理最舊的 200 個新檔或變更檔 |
 | 去重鍵 | `source_file` UNIQUE + `source_fingerprint = "{len}:{mtime_ms}"` |
-| 預設保留 | 30 天 / 5120 MB / 單欄位 1024 KB（皆可在 UI 調整，`0` = 不限制） |
+| 預設保留 | 30 天 / 5120 MB 資料庫 / 4096 KB 單欄位 / 1024 MB 日誌目錄（保留天數、資料庫與日誌目錄的 `0` = 不限制或交給核心） |
 | 前端事件 | `request-archive-updated` |
-| 啟用路徑 | 用量統計 → 資料管理 → 完整請求歸檔 → 勾選 + 「立即開啟 request-log」 |
+| 啟用路徑 | 用量統計 → 資料管理 → 完整請求歸檔 → 勾選後按「儲存設定」，再獨立開啟 `request-log` |
 | 查看路徑 | 用量統計 → 事件列表 → 點任一列 |
+
+歸檔啟用開關和四個數字欄位都是同一份本機草稿。使用者可直接輸入數字或用 spinner 調整，只有按「儲存設定」才會呼叫設定命令。命令成功後，卡片會重新讀取後端值；五個欄位全數吻合才顯示成功通知，否則顯示驗證失敗。`request-log` 保持獨立即時開關，因為它寫入核心設定而非歸檔 DB。
 
 Tauri 命令（12 個）：
 
 | 命令 | 用途 |
 | --- | --- |
 | `get_request_archive_status` | 設定 + 統計 + 資料庫與日誌佔用 + 三個前提的狀態 |
-| `save_request_archive_settings` | 寫入四項設定 |
+| `save_request_archive_settings` | 以完整 payload 寫入五項歸檔設定：啟用狀態、保留天數、資料庫上限、單欄位上限與日誌目錄上限 |
 | `query_request_archive_records` | 分頁查詢摘要 |
 | `get_request_archive_record` / `..._by_request_id` | 取單筆詳情（不含原始報文） |
 | `get_request_archive_payloads` | 原始報文，點開該分頁時才抓 |
@@ -665,13 +683,43 @@ sqlite3 "$HOME/Library/Application Support/com.cpa.gui/request-records/requests.
 
 上限是**週期性強制**而非即時，因此兩次清理之間會短暫超出，超出量約等於「產生速率 × 週期」。實測核心週期為 1 分鐘、單筆 transcript 可達 13 MB，短暫超出數十 MB 屬正常。
 
-### 10.4 兩個曾造成資料遺失的陷阱
+### 10.4 三個已修正的歸檔陷阱
 
 **`PRAGMA` 會回傳結果列。** `PRAGMA wal_checkpoint(TRUNCATE)` 用 `execute()` 呼叫會失敗（`Execute returned results`），必須用 `query_row`。這個錯誤在 `apply_retention` 裡被 `?` 提前中止，導致後面的 `VACUUM` 永遠沒執行。
 
 **不要用檔案大小當刪除迴圈的條件。** SQLite 刪除列後頁面只是進入 free list，檔案大小不變，要 `VACUUM` 才會縮小。原本的容量清理迴圈量的是檔案大小，於是條件恆為真，每輪再刪 200 筆 —— 實際把一個 135 筆的歸檔刪光，檔案仍停在 473 MB。
 
 現在改量**存活頁數**：`(page_count - freelist_count) × page_size`，那才是會隨刪除而下降的數字。回歸測試 `size_retention_stops_at_the_limit_instead_of_emptying_the_archive` 會塞 12 筆、設寬鬆上限，斷言一筆都不能被刪。
+
+**批次上限必須放在 fingerprint 過濾之後。** 舊流程先依時間取最舊 200 個 transcript，再由 `ingest_file()` 判斷是否已歸檔。當日誌目錄保留超過 200 個舊檔時，同一批檔案每 5 秒重複佔滿名額，新檔雖然存在卻永遠進不了 `requests.db`。事件列表來自 `usage.db`，所以 UI 仍看得到事件，點開只會得到「未找到歸檔內容」。
+
+現在 `scan_once()` 先讀取 `request_records` 的 `source_file` 與 `source_fingerprint`，排除未變的已歸檔檔案，再排序並截取 200 個新檔或變更檔。回歸測試 `scan_reaches_new_logs_after_the_first_batch_is_already_archived` 會先填滿一個 200 檔批次，再新增第 201 檔，確認下一輪一定能歸檔。
+
+### 10.5 事件存在，但請求詳情顯示未找到
+
+這個畫面不代表來源日誌一定被刪除。先分開檢查三層：
+
+1. `usage-records/usage.db` 是否有事件與 `request_id`。
+2. `oauth/logs/` 是否有相同 ID 的 transcript。
+3. `request-records/requests.db` 是否有相同 `request_id`。
+
+```bash
+BASE="$HOME/Library/Application Support/com.cpa.gui"
+sqlite3 "$BASE/usage-records/usage.db" \
+  "SELECT timestamp,request_id,model FROM usage_events ORDER BY timestamp_ms DESC LIMIT 20;"
+sqlite3 "$BASE/request-records/requests.db" \
+  "SELECT captured_at,request_id,source_file FROM request_records ORDER BY captured_at_ms DESC LIMIT 20;"
+find "$BASE/oauth/logs" -maxdepth 1 -type f -name 'v1-*.log' | wc -l
+```
+
+若事件與來源 log 都存在，但歸檔的 `MAX(captured_at)` 長時間停住，先跑：
+
+```bash
+cd EasyCLIProxyAPI/src-tauri
+cargo test scan_reaches_new_logs_after_the_first_batch_is_already_archived
+```
+
+不要用清空歸檔或刪除 log 當排錯手段。這兩個動作會消除證據，也無法修正採集器。
 
 ---
 

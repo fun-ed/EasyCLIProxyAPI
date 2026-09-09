@@ -666,7 +666,7 @@ export function EasyModePage({
             <img src={appLogo} alt="" className="brand-mark brand-logo" />
             <div className="simple-mode-brand-text">
               <div className="simple-mode-brand-title">
-                <strong>EasyCLIProxyAPI-fork</strong>
+                <strong>{t('fork.appName')}</strong>
                 <span className="simple-mode-badge">{t("easyMode.badge")}</span>
               </div>
               <span className="simple-mode-brand-sub">{t("easyMode.brandSub")}</span>
