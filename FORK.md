@@ -14,20 +14,30 @@
 
 ```bash
 cd <workspace 根目錄>          # 例如 ~/temp/cliproxy-api
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
+export TMPDIR=/private/tmp
 
 ./sync-and-build.sh --check    # 1. 先看 upstream 有沒有更新（只 fetch，不改任何東西）
 ./sync-and-build.sh --app      # 2. 同步 + 驗證 + 打包 + 產生 .app 與 DMG
 open EasyCLIProxyAPI/src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 ```
 
+目前 macOS 的完整 Rust 測試會在已知的 symlink cleanup case 停下來。確認 TypeScript、Bun 與 Go 檢查後，要完成 release build 請改跑：
+
+```bash
+TMPDIR=/private/tmp ./sync-and-build.sh --no-sync --app --no-verify
+```
+
 第 1 步可省略，直接跑第 2 步也會自己 fetch。`--check` 的離開碼可供排程判斷：`0` = 已是最新，`10` = 有更新待套用。
+
+> **Apple Silicon macOS toolchain：** release build 必須用 Rust 1.90.0。Rust 1.98.1 編譯 `cpa-gui` 會在 rustc 內部 `SIGBUS`，`cargo clean` 後仍可重現；在 compiler 修正前，不要用它建 portable、`.app` 或 DMG。
 
 > **一定要加 `--app`。** 不加只會產出 `bin-work/` 的可攜版，那個版本**自帶一份空白 profile**（沒有你的憑證、沒有用量記錄、歸檔永遠 0 筆）。`--app` 會同時產生共用真實 profile 的 `.app` 與可安裝的 DMG。原因見 §9.1。
 
 只改了程式碼、想最快看到結果：
 
 ```bash
-./sync-and-build.sh --app-only    # 跳過 git 與核心/面板，只驗證 + 出 .app 與 DMG
+TMPDIR=/private/tmp ./sync-and-build.sh --app-only --no-verify
 ```
 
 腳本會自己 fetch、rebase、建置、驗證、打包。細節見 §6，衝突處理見 §6.2，手動指令見 §6.4。
@@ -74,7 +84,12 @@ Done.
 1. **真實 upstream 前進**：upstream 從 `8575f4e` 推進 3 個 commit 到 `584c63b`（cpa-gui 0.2.72 → 0.2.73、核心 7.2.149 → 7.2.151），6 個 fork commit **零衝突** rebase，完成打包。
 2. **無更新增量重建**：三個 repo 皆為最新，1 分 08 秒完成全流程。
 3. **2026-09-07 upstream sync**：核心更新到 `934fb792`，GUI rebase 到 `75fac19`（cpa-gui 0.2.76、核心 bundle 7.2.152）。處理 i18n 與 fork 名稱兩組預期衝突後，完整測試、portable、`.app` 與 DMG 建置完成。
-4. **2026-09-09 upstream sync**：核心更新到 `7fac6b15`，面板更新到 `ed5f1c4`，GUI rebase 到 `5548324`（cpa-gui 0.2.80、核心 bundle 7.2.154）。完整測試、`.app` 與 DMG 建置完成。
+4. **2026-09-09 upstream sync**：核心更新到 `7fac6b15`，面板更新到 `ed5f1c4`，GUI rebase 到 `5548324`（cpa-gui 0.2.80、核心 bundle 7.2.154）。完整測試、portable、`.app` 與 DMG 建置完成。
+5. **2026-09-21 upstream sync**：核心更新到 `a5ab6952`（v7.3.10），面板更新到 `bbac79d`（v1.24.1），GUI rebase 到 `7b72d97`（upstream v0.2.101）。目前 GUI source 的 Cargo 版本為 0.2.97，bundle 的核心版本為 7.3.9。Go 編譯、面板 build、TypeScript 與 Bun tests 通過；Rust tests 只剩已知 symlink cleanup failure，portable、`.app` 與 DMG 均已完成。
+6. **2026-09-25 upstream sync**：核心更新到 `c404af96`（v7.3.16），面板維持 `4530da2`（v1.24.2），GUI rebase 到 `6c64fc0`（upstream v0.3.2 後一筆 release-notes commit；fork HEAD `083490c`）。GUI Cargo 版本仍為 0.2.97，bundle 的核心版本更新至 7.3.12。事件列表衝突保留 upstream 的 `row_id` 作為列 key，同時保留 fork 的歸檔入口與停用開關。Go 編譯、面板 build、TypeScript、Bun tests 與 Go logging tests 通過；Rust 全套 607/608 通過，僅已知的 macOS symlink cleanup case 失敗。portable、`.app` 與 DMG 已完成。
+7. **2026-09-27 upstream sync**：核心更新到 `4a2c8186`（v8.0.2），面板維持 `4530da2`（v1.24.2），GUI rebase 到 `cb7fbbe`（upstream v0.3.7 後的 release notes；fork HEAD `40a9fa0`）。GUI Cargo 版本為 0.3.6，bundle 核心版本為 8.0.2。rebase 保留 upstream 的跨平台 tray 設定、用量分頁容器和新的定價來源選擇，同時保留 fork 的歸檔功能。Go 編譯、面板 build、TypeScript 與 Bun tests 通過；Rust 全套 635/636 通過，僅已知 macOS symlink cleanup case 失敗。portable、`.app` 與 DMG 已完成；面板釘選改寫 v8 `management` 區塊，並確認設定 YAML 有效。
+8. **2026-10-01 upstream sync**：核心更新到 `97f244b8`（v8.0.7），面板更新到 `a7ec312`（v1.25.1），GUI 的 25 個 fork commits 無衝突 rebase 到 `90364e9`（upstream v0.3.12；fork HEAD `d3c5eca`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.6。修正歸檔接點以傳遞新版 `auth_dir_path_for_core` 的 `Result` 錯誤。Go 編譯、面板 build、TypeScript 與 Bun tests 通過；Rust 全套 678 通過、2 忽略，僅已知 macOS symlink cleanup case 失敗。本機未提交修改已保存並還原。
+   portable、`.app` 與 `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg` 已用 Rust 1.90.0 完成建置，portable 內附 `CLIProxyAPI_8.0.6_darwin_aarch64.tar.gz`。
 
 ---
 
@@ -84,11 +99,11 @@ Done.
 | --- | --- |
 | Upstream | `router-for-me/EasyCLIProxyAPI`（目前就是 `origin`） |
 | 工作分支 | `feature/request-archive` |
-| Fork 基底 | `5548324` — `fix: update cpa-gui version to 0.2.80` |
-| GUI 版本 | `src-tauri/Cargo.toml` = `0.2.80` |
+| Fork 基底 | `90364e9` — `Upgrade CPA core to v8.0.6`（upstream v0.3.12） |
+| GUI 版本 | `src-tauri/Cargo.toml` = `0.3.6` |
 | Git 身分（repo local） | `fun-ed <git-ed@runbox.no>` |
-| 核心版本綁定 | `core-version.txt` = `7.2.154` |
-| 產出執行檔 | `bin-work/EasyCLIProxyAPI-fork` |
+| 同步的核心 checkout | `CLIProxyAPI` = `97f244b8`（v8.0.7） |
+| 核心版本綁定 | `core-version.txt` = `8.0.6` |
 | 資料目錄 | `~/Library/Application Support/com.cpa.gui`（**與官方版共用**） |
 
 ### Fork commit 清單
@@ -320,7 +335,7 @@ export const jaOverrides = {
 
 ```bash
 cd <workspace 根目錄>
-./sync-and-build.sh
+RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin ./sync-and-build.sh
 ```
 
 實體檔案是 `EasyCLIProxyAPI/scripts/fork-sync-and-build.sh`（隨 repo 版控，換機不會遺失），workspace 根目錄的 `sync-and-build.sh` 只是指過去的 symlink。兩個入口行為相同。
@@ -334,7 +349,7 @@ cd <workspace 根目錄>
 | 3 | `EasyCLIProxyAPI` fetch + `rebase origin/main` | 衝突時停下並印出 §3 的對照指引，**絕不自動解衝突** |
 | 4 | 核心 `go build` 編譯檢查 + gofmt 檢查 | 只警告不阻擋 gofmt |
 | 5 | 面板 `bun run build` → 安裝到 `<core install dir>/static/management.html` | 內容相同則跳過複製 |
-| 6 | 把核心 config 的 `disable-auto-update-panel` 釘成 `true` | 否則核心每 3 小時會用 GitHub 版覆蓋你的本機 build |
+| 6 | 把核心 config 的 `management.disable-auto-update-panel`（舊版為 `remote-management`）釘成 `true` | 僅改寫區塊式設定，不在 flow mapping 後插入無效 YAML；否則核心每 3 小時會用 GitHub 版覆蓋本機 build |
 | 7 | fork `bun install` / `bun run check` / `bun test` / `cargo test` | 最新 upstream 應全綠；cargo 失敗會重試一次以排除 §8 的 flake |
 | 8 | fork `./build.sh` → `bin-work/EasyCLIProxyAPI-fork`（可攜版） | — |
 | 9 | 加 `--app` 時額外 `bun tauri build` → `.app` + DMG | 腳本會檢查兩個產物都存在，並把路徑寫進 Summary |
@@ -353,7 +368,16 @@ cd <workspace 根目錄>
 ./sync-and-build.sh --help
 ```
 
-環境變數：`FORK_BRANCH`（預設 `feature/request-archive`）、`CPA_CORE_INSTALL_DIR`。
+環境變數：`FORK_BRANCH`（預設 `feature/request-archive`）、`CPA_CORE_INSTALL_DIR`、`RUSTUP_TOOLCHAIN`。此 Apple Silicon macOS 工作站的 release build 必須設為 `1.90.0-aarch64-apple-darwin`；Rust 1.98.1 會在編譯 `cpa-gui` 時 SIGBUS。
+
+macOS 執行 Rust tests 時，預設 `/var/folders/...` 暫存目錄會因 `/var` 是 symlink 而讓 66 個 `agents::backups` tests 失敗。改用 `TMPDIR=/private/tmp` 可避開這批失敗；完整指令為：
+
+```bash
+cd EasyCLIProxyAPI/src-tauri
+TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin cargo test
+```
+
+目前仍有一個 symlink cleanup 的已知 test failure，詳見 §8。它不影響 release build；需要先建 `.app` 或 DMG 時可明確使用 `--no-verify`，不可把它誤判為 app 編譯失敗。
 
 ### 6.2 rebase 衝突時
 
@@ -371,6 +395,7 @@ git -C EasyCLIProxyAPI rebase --continue
 
 ```bash
 cd EasyCLIProxyAPI
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
 git status --short
 git fetch origin
 git checkout feature/request-archive
@@ -379,7 +404,6 @@ cat core-version.txt                 # upstream 若升版，這裡會變
 bun install
 bun run check
 bun test
-bun run build
 cd src-tauri && cargo test && cd ..
 ```
 
@@ -394,6 +418,7 @@ cd src-tauri && cargo test && cd ..
 
 ```bash
 cd EasyCLIProxyAPI
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
 bun install
 bun tauri build
 # 產物：
@@ -407,7 +432,7 @@ open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 
 ```bash
 cd EasyCLIProxyAPI
-./build.sh          # 內含 bun install + bun tauri build --no-bundle + portable 打包
+RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin ./build.sh
 ./run.sh            # 等同執行 bin-work/EasyCLIProxyAPI-fork
 ```
 
@@ -485,6 +510,8 @@ upstream 從 0.2.76 起已補齊舊的日文 i18n 缺鍵，`bun test` 現在應�
 | 問題 | 狀態 |
 | --- | --- |
 | `tests::instance_lock::app_instance_guard_rejects_a_second_copy_and_releases_on_drop` 偶發失敗 | **upstream 既有 flake**。該測試用固定目錄 `agent_test_home("instance-lock")`，全套並行時偶爾輸給 OS 檔案鎖的釋放時序。單獨執行必過；連跑三次全套也全過。sync 腳本失敗時會自動重試一次 |
+| macOS 預設 `TMPDIR` 下 66 個 `agents::backups` tests 失敗，訊息為「配置路径不能包含符号链接: /var」 | 測試的暫存路徑位於 `/var/folders/...`，而驗證器依設計拒絕含 symlink 的路徑。用 `TMPDIR=/private/tmp` 執行 `cargo test` 可排除這 66 個環境失敗 |
+| `linked_configuration_and_backup_directories_are_rejected` 在 macOS 失敗 | `src/agents/backups/tests.rs:682` 對 symlink 使用 `fs::remove_dir()`，macOS 回傳 `ENOTDIR`。這是 test cleanup 的跨平台假設，不是 app 行為失敗；使用 `TMPDIR=/private/tmp` 後目前只剩這一項 |
 | 成功請求（含 usage / token 數）未實測 | 解析器已用**真實核心產出的 log** 驗證三種 provider 形狀（見 §8.1），但那三筆都是 HTTP 400 失敗請求。`usage_json` 與 token 欄位的擷取仍只有合成樣本覆蓋，需要一筆真實成功請求才算完整 |
 | UI 渲染未實測 | 詳情對話框五個分頁的實際渲染尚未在真實資料上目視確認 |
 | `usage_events.request_id` 是否在所有 provider 路徑都與 log 檔名 id 一致 | 未逐一驗證 |
