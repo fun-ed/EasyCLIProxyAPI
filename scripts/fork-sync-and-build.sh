@@ -10,7 +10,8 @@
 
 set -euo pipefail
 
-# Resolve through the workspace-root symlink so both entry points behave the same.
+# Find the workspace root whether the script is reached through the root
+# symlink or run directly from the fork repository.
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [ -L "$SCRIPT_PATH" ]; do
   SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -20,8 +21,19 @@ while [ -L "$SCRIPT_PATH" ]; do
     *) SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH" ;;
   esac
 done
-APP_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
-ROOT_DIR="$(cd "$APP_DIR/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+ROOT_DIR="$SCRIPT_DIR"
+while [ ! -d "$ROOT_DIR/CLIProxyAPI" ] || \
+      [ ! -d "$ROOT_DIR/Cli-Proxy-API-Management-Center" ] || \
+      [ ! -d "$ROOT_DIR/EasyCLIProxyAPI" ]; do
+  PARENT_DIR="$(dirname "$ROOT_DIR")"
+  [ "$PARENT_DIR" != "$ROOT_DIR" ] || {
+    printf 'FAILED: could not locate the CLI Proxy API workspace root\n' >&2
+    exit 1
+  }
+  ROOT_DIR="$PARENT_DIR"
+done
+APP_DIR="$ROOT_DIR/EasyCLIProxyAPI"
 CORE_DIR="$ROOT_DIR/CLIProxyAPI"
 PANEL_DIR="$ROOT_DIR/Cli-Proxy-API-Management-Center"
 
@@ -223,28 +235,40 @@ with open(path, "r", encoding="utf-8") as handle:
     lines = handle.read().splitlines()
 
 key = "disable-auto-update-panel"
-for index, line in enumerate(lines):
-    if re.match(r"^\s+%s\s*:" % re.escape(key), line):
-        indent = line[: len(line) - len(line.lstrip())]
-        desired = "%s%s: true" % (indent, key)
-        if line.rstrip() == desired:
-            print("    panel auto-update already pinned")
-        else:
-            lines[index] = desired
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write("\n".join(lines) + "\n")
-            print("    pinned panel auto-update (updated existing key)")
-        sys.exit(0)
-
-for index, line in enumerate(lines):
-    if re.match(r"^remote-management\s*:", line):
-        lines.insert(index + 1, "  %s: true" % key)
+for section in ("management", "remote-management"):
+    for start, line in enumerate(lines):
+        if not re.match(r"^%s:\s*(?:#.*)?$" % section, line):
+            continue
+        end = next(
+            (index for index in range(start + 1, len(lines))
+             if lines[index].strip() and not lines[index][0].isspace()
+             and not lines[index].lstrip().startswith("#")),
+            len(lines),
+        )
+        for index in range(start + 1, end):
+            match = re.match(r"^(\s+)#?\s*%s\s*:" % key, lines[index])
+            if match:
+                desired = "%s%s: true" % (match.group(1), key)
+                if lines[index] == desired:
+                    print("    panel auto-update already pinned")
+                else:
+                    lines[index] = desired
+                    with open(path, "w", encoding="utf-8") as handle:
+                        handle.write("\n".join(lines) + "\n")
+                    print("    pinned panel auto-update (updated existing key)")
+                sys.exit(0)
+        indent = next(
+            (re.match(r"^(\s+)\S", entry).group(1)
+             for entry in lines[start + 1:end] if re.match(r"^(\s+)\S", entry)),
+            "  ",
+        )
+        lines.insert(start + 1, "%s%s: true" % (indent, key))
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + "\n")
         print("    pinned panel auto-update (inserted key)")
         sys.exit(0)
 
-print("    WARN: no remote-management block found; panel may be overwritten")
+print("    WARN: no block-style management settings found; panel may be overwritten")
 PY
 }
 
