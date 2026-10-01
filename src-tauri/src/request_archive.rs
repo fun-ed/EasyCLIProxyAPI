@@ -187,7 +187,7 @@ fn archive_database_path() -> Result<PathBuf, String> {
 pub(crate) fn core_logs_directories(auth_dir: &str) -> Result<Vec<PathBuf>, String> {
     let install_dir = core_install_dir()?;
     let mut candidates = vec![
-        auth_dir_path_for_core(auth_dir, &install_dir).join("logs"),
+        auth_dir_path_for_core(auth_dir, &install_dir)?.join("logs"),
         install_dir.join("logs"),
     ];
     candidates.dedup();
