@@ -152,12 +152,13 @@ bun install
 bun run check
 bun test
 bun test tests/requestArchive.test.ts tests/uiLocalization.test.ts
-cd src-tauri && cargo test request_archive
+cd src-tauri && RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin cargo test request_archive
 ```
 
 Run the complete workflow from the workspace root:
 
 ```bash
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
 ./sync-and-build.sh --check
 ./sync-and-build.sh --app
 ./sync-and-build.sh --app-only
@@ -175,6 +176,10 @@ EasyCLIProxyAPI/src-tauri/target/release/bundle/dmg/EasyCLIProxyAPI-fork_<versio
 `--app-only` skips git, the core, and the management panel. Use it only when
 those are already current. `./build.sh` produces the portable build with a
 separate blank profile.
+
+On this Apple Silicon macOS workstation, use Rust 1.90.0 for Rust-backed commands. Rust 1.98.1 reproducibly crashes rustc with SIGBUS while compiling `cpa-gui`, including after `cargo clean`.
+
+For local Rust tests on macOS, use `TMPDIR=/private/tmp` to avoid the default `/var/folders/...` path; it otherwise causes 66 `agents::backups` failures because the validator rejects `/var` as a symlink. One separate known test cleanup failure remains: `linked_configuration_and_backup_directories_are_rejected` uses `fs::remove_dir()` on a symlink and receives `ENOTDIR`.
 
 Current upstream passes `bun test`. `cargo test` may hit the known
 `tests::instance_lock::*` timing flake; rerun it once before calling it a
