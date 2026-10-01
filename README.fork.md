@@ -5,6 +5,7 @@
 - Upstream：`router-for-me/EasyCLIProxyAPI`
 - 維護規範（SOT）：[`FORK.md`](FORK.md)
 - 代理協作規範：[`AGENTS.md`](AGENTS.md)
+- 可重複執行的同步、文件更新與 release runbook：[`SYNC-UPDATE-RELEASE.md`](SYNC-UPDATE-RELEASE.md)
 
 本檔只講「怎麼建、怎麼跑」。改動內容、rebase 對照表、不變式一律以 `FORK.md` 為準。
 
@@ -34,15 +35,35 @@
 在 **workspace 根目錄**（`EasyCLIProxyAPI` 的上一層）：
 
 ```bash
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
+export TMPDIR=/private/tmp
+
 ./sync-and-build.sh --check     # 先看 upstream 有沒有更新，只 fetch 不改東西
 ./sync-and-build.sh --app       # 同步三個 repo + 建置 + 驗證 + 打包 + 產生 .app
+```
+
+目前 macOS Rust suite 會在一個已知的 symlink cleanup case 失敗。完成 release build 時，先跑上面的驗證，然後改用：
+
+```bash
+./sync-and-build.sh --no-sync --app --no-verify
 ```
 
 只改了程式碼、想最快看到結果：
 
 ```bash
-./sync-and-build.sh --app-only  # 跳過 git 與核心/面板，約 1 分鐘
+./sync-and-build.sh --app-only --no-verify  # 跳過 git 與核心/面板，產生 .app 與 DMG
 ```
+
+此 Apple Silicon macOS 工作站的 release build 必須使用 Rust 1.90.0。Rust 1.98.1 編譯 `cpa-gui` 時會發生 `SIGBUS`，即使 `cargo clean` 後仍會重現；在該編譯器修正前不可用於 portable、`.app` 或 DMG 建置。
+
+Rust test 在 macOS 另有環境限制：預設的 `/var/folders/...` 暫存目錄會因 `/var` 是 symlink 而使 66 個 `agents::backups` 測試失敗。請改用：
+
+```bash
+cd EasyCLIProxyAPI/src-tauri
+TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin cargo test
+```
+
+此設定下目前僅剩 `linked_configuration_and_backup_directories_are_rejected` 一個已知的 symlink cleanup 測試失敗（詳見 `FORK.md` §8）；它不影響 release build。若 `--app` 已完成同步但停在這個測試，請用 `TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin ./sync-and-build.sh --no-sync --app --no-verify` 完成 portable、`.app` 與 DMG。
 
 `--check` 的離開碼可供排程使用：`0` = 已是最新，`10` = 有更新待套用。
 
@@ -54,6 +75,7 @@
 
 ```bash
 cd EasyCLIProxyAPI
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
 bun install
 bun tauri build
 open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
@@ -63,6 +85,7 @@ open src-tauri/target/release/bundle/macos/EasyCLIProxyAPI-fork.app
 
 ```bash
 cd EasyCLIProxyAPI
+export RUSTUP_TOOLCHAIN=1.90.0-aarch64-apple-darwin
 ./build.sh      # 產出 bin-work/EasyCLIProxyAPI-fork
 ./run.sh
 ```
