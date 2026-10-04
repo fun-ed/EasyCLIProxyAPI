@@ -101,6 +101,6 @@ test('release portable preparation still creates an archive-only core directory'
     expect(prepare(root)).toContain('(archive only)');
     expect(await readdir(coreOutput)).toEqual([archiveName]);
     expect(await readFile(join(coreOutput, archiveName), 'utf8')).toBe(archiveContents);
-    expect(await readFile(join(root, 'bin-work', 'EasyCLIProxyAPI.exe'), 'utf8')).toBe('new GUI executable');
+    expect(await readFile(join(root, 'bin-work', 'EasyCLIProxyAPI-fork.exe'), 'utf8')).toBe('new GUI executable');
   });
 });
