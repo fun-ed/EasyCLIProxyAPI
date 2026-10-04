@@ -259,6 +259,7 @@ export const jaOverrides = {
 | `scripts/portable.mjs` `outputBinary` | `EasyCLIProxyAPI` | `EasyCLIProxyAPI-fork` |
 | `build.sh` `BIN_OUT` / `run.sh` `APP_BIN` | `EasyCLIProxyAPI` | `EasyCLIProxyAPI-fork` |
 | `run.ps1` `$AppBin` / `copy.ps1` `$BinOut` | `EasyCLIProxyAPI.exe` | `EasyCLIProxyAPI-fork.exe` |
+| `tests/portablePreparation.test.ts` 輸出檔斷言 | `EasyCLIProxyAPI.exe` | `EasyCLIProxyAPI-fork.exe` |
 
 **刻意沒改**（改了成本高於效益）：
 
