@@ -98,6 +98,9 @@ Done.
 11. **2026-10-20 upstream sync**：核心 fast-forward 到 `3f0cef01`（`v8.0.35-3-g3f0cef01`），面板到 `fe29633`（v1.26.5），28 個 fork commits rebase 到 `aee871a`（upstream v0.3.47；fork HEAD `2b65086`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.34。保留新版共用 UsageRecord、Select 與原生視窗 decorations；歸檔的 `request_id` 接到 `src/services/usage.ts`。歸檔介面改用 upstream 的 Dialog、Switch、Tabs、surface 與按鈕樣式，補齊空歸檔 browser mock 和狀態隔離測試，未擴大測試容許清單。
     Go 編譯、GUI 與面板 production build 通過。Bun 1.3.14：面板 1635 通過；GUI 926 通過、32 跳過、4 失敗，均在乾淨 upstream 重現，分別是 Copilot 本地化、兩項 quota priority 斷言與 WindowFrame alert role 檢查。Rust 1.90.0：949 通過、9 忽略，僅已知 macOS symlink cleanup 失敗。歸檔與共用元件 50 項整合測試通過。Firefox MCP 啟動退出，Vite preview 未就緒，未完成瀏覽器互動驗證。既有未提交修改已還原，回復分支與 stash 保留。
     後續依使用者要求，以 Rust 1.90.0、Bun 1.3.14 建置 arm64 `.app` 與 `EasyCLIProxyAPI-fork_0.3.6_upstream-0.3.47_20261020_aarch64.dmg`。Tauri 只留下 linker signature，因此補上 ad-hoc bundle 簽章並重新製作 DMG；嚴格 codesign 檢查、`hdiutil verify` 及掛載後 App 逐檔比對均通過。未使用 Apple Developer 簽章或公證，未重建 portable bundle。
+    歸檔適配與維護紀錄已提交為 `193bd8b`，Release [fork-v0.3.47-20261020](https://github.com/fun-ed/EasyCLIProxyAPI/releases/tag/fork-v0.3.47-20261020) 的 tag 指向該原始碼提交；重新下載 DMG 後 SHA-256 通過。使用者明確核准後，先保存遠端 `backup/pre-sync-20261020-6375f31`，再以精確舊 SHA 的 `--force-with-lease` 推送。本機 `backup/pre-sync-20261020-7216771` 與具名 stash 仍保留。
+    新 App 已安裝至 `/Applications/EasyCLIProxyAPI-fork.app`，舊 App 備份為 `EasyCLIProxyAPI-fork.backup-20261020-163812.app`；安裝檔與簽章後建置產物一致。重新啟動後 App 與既有核心持續執行，核心 HTTP 200，版本標頭為 8.0.35。此 DMG 只含 GUI，沒有離線核心 archive；source pin 8.0.34 不等於 profile 中實際執行版本。多份舊核心 archive 的離線選版警告不影響本次既有核心啟動，未清理使用者 archive 或資料庫。
+    Serena 續接記憶位於 `core`、`easycliproxyapi/core`、`easycliproxyapi/release-workflow`；篩選來源為 KB-relative `projects/cliproxy-api/session-notes/2026-10-20-sync-release-install-serena.md`，雙記憶儲存的完成狀態與來源雜湊以同名 `.receipts.json` 為準。KB 與工作區 Serena 目錄不屬於此 GUI Git repo，不作為 App 資產提交。
 
 ---
 
