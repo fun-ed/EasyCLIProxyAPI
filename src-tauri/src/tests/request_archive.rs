@@ -191,6 +191,7 @@ fn scan_skips_application_log_and_spilled_bodies() {
     let connection = testing::open_database(&root).unwrap();
     let settings = RequestArchiveSettings {
         enabled: true,
+        retention_days: 0,
         ..RequestArchiveSettings::default()
     };
     let ingested = testing::scan(&connection, &root, &logs, settings).unwrap();
@@ -228,6 +229,7 @@ fn scan_reaches_new_logs_after_the_first_batch_is_already_archived() {
     let connection = testing::open_database(&root).unwrap();
     let settings = RequestArchiveSettings {
         enabled: true,
+        retention_days: 0,
         ..RequestArchiveSettings::default()
     };
     assert_eq!(
@@ -626,6 +628,7 @@ fn size_retention_stops_at_the_limit_instead_of_emptying_the_archive() {
     let connection = testing::open_database(&root).unwrap();
     let settings = RequestArchiveSettings {
         enabled: true,
+        retention_days: 0,
         max_body_kb: 65536,
         ..RequestArchiveSettings::default()
     };

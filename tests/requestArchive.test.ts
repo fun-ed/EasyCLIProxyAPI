@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { createBrowserMockRuntime } from '../src/mocks/browserMockRuntime';
 import {
   archiveReadiness,
   formatArchiveBytes,
@@ -247,4 +248,32 @@ describe('request archive settings draft', () => {
 
     expect(requestArchiveSettingsFromDraft(draft)).toBeNull();
   });
+});
+
+it('keeps archive settings and request logging independent in browser previews', async () => {
+  const runtime = createBrowserMockRuntime('running');
+  const settings = { enabled: true, retentionDays: 7, maxTotalMb: 64, maxBodyKb: 32, logsMaxMb: 128 };
+  await runtime.invoke('save_request_archive_settings', { settings });
+  expect(await runtime.invoke('get_request_archive_status')).toMatchObject({
+    settingsEnabled: true,
+    requestLogEnabled: false,
+    retentionDays: 7,
+  });
+  await runtime.invoke('set_core_request_log', { enabled: true });
+  expect(await runtime.invoke('get_request_archive_status')).toMatchObject({
+    settingsEnabled: true,
+    requestLogEnabled: true,
+  });
+  expect(await createBrowserMockRuntime('running').invoke('get_request_archive_status')).toMatchObject({
+    settingsEnabled: false,
+    requestLogEnabled: false,
+  });
+  expect(await runtime.invoke('query_request_archive_records')).toEqual({ total: 0, records: [] });
+  for (const command of ['get_request_archive_record', 'get_request_archive_record_by_request_id', 'get_request_archive_payloads', 'clear_request_archive']) {
+    expect(await runtime.invoke(command)).toBeNull();
+  }
+  expect(await runtime.invoke('get_request_archive_models')).toEqual([]);
+  for (const command of ['compact_request_archive', 'purge_ingested_request_logs']) {
+    expect(await runtime.invoke(command)).toEqual({ removedFiles: 0, freedBytes: 0, skippedFiles: 0 });
+  }
 });

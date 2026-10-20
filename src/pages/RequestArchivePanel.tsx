@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, FolderOpen, HardDrive, RefreshCw, Trash2, X } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { Dialog } from '../components/Dialog';
+import { Switch } from '../components/Switch';
+import { Tabs } from '../components/Tabs';
+import { openCoreLogsDirectory } from '../services/coreSettings';
 import { useI18n } from '../i18n';
 import type { MessageKey } from '../i18n/resources';
 import {
@@ -125,7 +128,7 @@ export function RequestArchiveSettingsCard() {
   const setRequestLog = async (enabled: boolean) => {
     setSaving(true);
     try {
-      await invoke('set_core_request_log', { enabled });
+      await requestArchiveApi.setRequestLog(enabled);
       await refresh();
     } catch (saveError) {
       setError(String(saveError));
@@ -172,7 +175,7 @@ export function RequestArchiveSettingsCard() {
   };
 
   return (
-    <section className="panel usage-data-management-panel">
+    <section className="panel surface-card usage-data-management-panel">
       <div className="usage-data-management-heading">
         <div>
           <Archive size={20} aria-hidden="true" />
@@ -188,16 +191,13 @@ export function RequestArchiveSettingsCard() {
 
       {status ? (
         <>
-          <div className="usage-archive-switches">
-            <label className="usage-archive-switch">
-              <input
-                type="checkbox"
-                checked={status.requestLogEnabled}
-                disabled={saving || status.commercialMode}
-                onChange={(event) => void setRequestLog(event.target.checked)}
-              />
-              <span>{t('usage.archive.requestLogSwitch')}</span>
-            </label>
+          <div className="usage-archive-toggles">
+            <Switch
+              checked={status.requestLogEnabled}
+              disabled={saving || status.commercialMode}
+              onChange={(event) => void setRequestLog(event.target.checked)}
+              label={t('usage.archive.requestLogSwitch')}
+            />
           </div>
 
           {readiness === 'commercial-mode' ? (
@@ -214,21 +214,18 @@ export function RequestArchiveSettingsCard() {
               void saveSettings(event.currentTarget);
             }}
           >
-            <div className="usage-archive-switches">
-              <label className="usage-archive-switch">
-                <input
-                  type="checkbox"
-                  name="enabled"
-                  checked={draft?.enabled ?? status.settingsEnabled}
-                  disabled={saving}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current ? { ...current, enabled: event.target.checked } : current,
-                    )
-                  }
-                />
-                <span>{t('usage.archive.enable')}</span>
-              </label>
+            <div className="usage-archive-toggles">
+              <Switch
+                name="enabled"
+                checked={draft?.enabled ?? status.settingsEnabled}
+                disabled={saving}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current ? { ...current, enabled: event.target.checked } : current,
+                  )
+                }
+                label={t('usage.archive.enable')}
+              />
             </div>
 
             <div className="usage-archive-fields">
@@ -283,7 +280,7 @@ export function RequestArchiveSettingsCard() {
             </div>
 
             <div className="usage-archive-actions">
-              <button type="submit" disabled={saving || !settings}>
+              <button type="submit" className="primary-button" disabled={saving || !settings}>
                 <span>{t('usage.archive.saveSettings')}</span>
               </button>
             </div>
@@ -322,20 +319,21 @@ export function RequestArchiveSettingsCard() {
           {status.lastError ? <p className="usage-archive-alert">{status.lastError}</p> : null}
 
           <div className="usage-archive-actions">
-            <button type="button" disabled={saving} onClick={() => void refresh()}>
+            <button type="button" className="secondary-button" disabled={saving} onClick={() => void refresh()}>
               <RefreshCw size={16} aria-hidden="true" />
               <span>{t('usage.archive.refresh')}</span>
             </button>
-            <button type="button" disabled={saving} onClick={() => void invoke('open_core_logs_directory')}>
+            <button type="button" className="secondary-button" disabled={saving} onClick={() => void openCoreLogsDirectory()}>
               <FolderOpen size={16} aria-hidden="true" />
               <span>{t('usage.archive.openLogs')}</span>
             </button>
-            <button type="button" disabled={saving} onClick={() => void runMaintenance('compact')}>
+            <button type="button" className="secondary-button" disabled={saving} onClick={() => void runMaintenance('compact')}>
               <HardDrive size={16} aria-hidden="true" />
               <span>{t('usage.archive.compact')}</span>
             </button>
             <button
               type="button"
+              className="secondary-button"
               disabled={saving}
               onClick={() => void runMaintenance('purgeLogs', 'usage.archive.purgeLogsConfirm')}
             >
@@ -344,7 +342,7 @@ export function RequestArchiveSettingsCard() {
             </button>
             <button
               type="button"
-              className="usage-archive-danger"
+              className="danger-button"
               disabled={saving}
               onClick={() => void clear()}
             >
@@ -439,23 +437,17 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
   }
 
   return (
-    <div
-      className="config-dialog-backdrop"
-      onMouseDown={(event) => event.currentTarget === event.target && onClose()}
+    <Dialog
+      className="config-dialog usage-archive-dialog"
+      label={t('usage.archive.detailTitle')}
+      onClose={onClose}
+      dismissOnBackdrop
     >
-      <section
-        className="config-dialog usage-archive-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('usage.archive.detailTitle')}
-        onKeyDown={(event) => event.key === 'Escape' && onClose()}
-        tabIndex={-1}
-      >
         <header className="usage-archive-dialog-header">
           <h2>{t('usage.archive.detailTitle')}</h2>
           <button
             type="button"
-            className="usage-archive-close"
+            className="icon-button quiet"
             aria-label={t('usage.archive.close')}
             onClick={onClose}
           >
@@ -476,22 +468,22 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
               ) : null}
             </p>
 
-            <nav className="usage-archive-tabs">
-              {SECTION_ORDER.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={section === key ? 'active' : ''}
-                  onClick={() => setSection(key)}
-                >
-                  {t(SECTION_LABELS[key])}
-                </button>
-              ))}
-            </nav>
+            <Tabs
+              className="usage-tabs usage-archive-tabs"
+              aria-label={t('usage.archive.detailTitle')}
+              items={SECTION_ORDER.map((key) => ({
+                value: key,
+                id: `archive-tab-${key}`,
+                panelId: 'archive-detail-panel',
+                label: t(SECTION_LABELS[key]),
+              }))}
+              value={section}
+              onChange={setSection}
+            />
           </>
         ) : null}
 
-        <div className="usage-archive-dialog-body">
+        <div className="usage-archive-dialog-body" id="archive-detail-panel" role="tabpanel" aria-labelledby={`archive-tab-${section}`}>
           {loading ? <p className="usage-archive-placeholder">{t('usage.archive.loading')}</p> : null}
           {error ? <p className="usage-archive-alert">{error}</p> : null}
           {!loading && !error && !detail ? (
@@ -560,7 +552,6 @@ export function RequestArchiveDetailDialog({ requestId, onClose }: DetailProps) 
             )
           ) : null}
         </div>
-      </section>
-    </div>
+    </Dialog>
   );
 }

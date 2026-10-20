@@ -94,6 +94,7 @@ export type RequestArchivePage = {
 
 export const requestArchiveApi = {
   status: () => invoke<RequestArchiveStatus>('get_request_archive_status'),
+  setRequestLog: (enabled: boolean) => invoke<void>('set_core_request_log', { enabled }),
   saveSettings: (settings: RequestArchiveSettings) =>
     invoke<void>('save_request_archive_settings', { settings }),
   query: (query: RequestArchiveQuery) =>

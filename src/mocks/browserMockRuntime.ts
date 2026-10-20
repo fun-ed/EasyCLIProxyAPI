@@ -970,6 +970,7 @@ export function createBrowserMockRuntime(
   let usageViewPreferences: Record<string, string> = {};
   let privacyMode: boolean | null = null;
   let themeSelection: ThemeSelection | null = null;
+  let archiveSettings = { enabled: false, retentionDays: 30, maxTotalMb: 1024, maxBodyKb: 256, logsMaxMb: 0 };
   if (scenario === 'empty') {
     state.usageEvents = [];
     state.usagePrices = [];
@@ -995,6 +996,36 @@ export function createBrowserMockRuntime(
     if (pluginResponse.handled) return pluginResponse.value;
 
     switch (command) {
+      case 'get_request_archive_status': return {
+        ...archiveSettings,
+        forkDisabled: false,
+        commercialMode: state.coreConfig.commercialMode,
+        settingsEnabled: archiveSettings.enabled,
+        requestLogEnabled: state.coreConfig.requestLog,
+        recordCount: 0,
+        databaseBytes: 0,
+        databasePath: 'mock/request-records/requests.db',
+        logsDirectory: 'mock/oauth/logs',
+        logsBytes: 0,
+        lastIngestedAt: '',
+        lastError: '',
+        oldestRecordAt: '',
+        newestRecordAt: '',
+      };
+      case 'save_request_archive_settings':
+        archiveSettings = { ...archiveSettings, ...asObject(payload.settings) };
+        return null;
+      case 'set_core_request_log':
+        state.coreConfig.requestLog = Boolean(payload.enabled);
+        return null;
+      case 'query_request_archive_records': return { total: 0, records: [] };
+      case 'get_request_archive_record':
+      case 'get_request_archive_record_by_request_id':
+      case 'get_request_archive_payloads':
+      case 'clear_request_archive': return null;
+      case 'get_request_archive_models': return [];
+      case 'compact_request_archive':
+      case 'purge_ingested_request_logs': return { removedFiles: 0, freedBytes: 0, skippedFiles: 0 };
       case 'plugin:app|version': return '0.2.97-mock';
       case 'plugin:app|name': return 'EasyCLIProxyAPI Browser Mock';
       case 'plugin:app|tauri_version': return '2.x-mock';
