@@ -11,43 +11,13 @@
 
 /* ---------------------------------------------------------------- settings */
 
-.usage-archive-switches {
+.usage-archive-toggles {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 18px;
 }
 
-.usage-archive-switch {
-  align-items: center;
-  border: 1px solid var(--theme-e3e1db);
-  border-radius: 10px;
-  background: var(--theme-faf9f5);
-  cursor: pointer;
-  display: flex;
-  gap: 10px;
-  padding: 11px 14px;
-}
-
-.usage-archive-switch:has(input:disabled) {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.usage-archive-switch input {
-  accent-color: var(--theme-2f6b3f);
-  cursor: inherit;
-  flex: none;
-  height: 16px;
-  margin: 0;
-  width: 16px;
-}
-
-.usage-archive-switch span {
-  color: var(--theme-2d2a26);
-  font-size: 13px;
-  line-height: 1.5;
-}
 
 .usage-archive-alert {
   border: 1px solid var(--theme-9f2d20);
@@ -159,40 +129,6 @@
   margin-top: 20px;
 }
 
-.usage-archive-actions button {
-  align-items: center;
-  border: 1px solid var(--theme-d5d2cb);
-  border-radius: 9px;
-  background: var(--theme-fffdf8);
-  color: var(--theme-2d2a26);
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 13px;
-  gap: 7px;
-  padding: 9px 15px;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.usage-archive-actions button:hover:not(:disabled) {
-  background: var(--theme-f4f1ea);
-  border-color: var(--theme-8a847c);
-}
-
-.usage-archive-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.usage-archive-actions .usage-archive-danger {
-  border-color: var(--theme-9f2d20);
-  color: var(--theme-9f2d20);
-}
-
-.usage-archive-actions .usage-archive-danger:hover:not(:disabled) {
-  background: var(--theme-9f2d20);
-  border-color: var(--theme-9f2d20);
-  color: var(--theme-fffdf8);
-}
 
 /* ------------------------------------------------------------------ dialog */
 
@@ -230,23 +166,6 @@
   margin: 0;
 }
 
-.usage-archive-close {
-  align-items: center;
-  border: 1px solid var(--theme-d5d2cb);
-  border-radius: 8px;
-  background: var(--theme-fffdf8);
-  color: var(--theme-2d2a26);
-  cursor: pointer;
-  display: inline-flex;
-  flex: none;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
-}
-
-.usage-archive-close:hover {
-  background: var(--theme-f4f1ea);
-}
 
 .usage-archive-meta {
   color: var(--theme-7a746c);
@@ -277,27 +196,6 @@
   gap: 4px;
 }
 
-.usage-archive-tabs button {
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--theme-7a746c);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 8px 13px;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.usage-archive-tabs button:hover {
-  color: var(--theme-2d2a26);
-}
-
-.usage-archive-tabs button.active {
-  border-bottom-color: var(--theme-2f6b3f);
-  color: var(--theme-2d2a26);
-  font-weight: 600;
-  text-decoration: none;
-}
 
 /* The only scroll container in the dialog. */
 .usage-archive-dialog-body {

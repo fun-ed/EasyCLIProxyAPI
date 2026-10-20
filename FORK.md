@@ -90,6 +90,14 @@ Done.
 7. **2026-09-27 upstream sync**：核心更新到 `4a2c8186`（v8.0.2），面板維持 `4530da2`（v1.24.2），GUI rebase 到 `cb7fbbe`（upstream v0.3.7 後的 release notes；fork HEAD `40a9fa0`）。GUI Cargo 版本為 0.3.6，bundle 核心版本為 8.0.2。rebase 保留 upstream 的跨平台 tray 設定、用量分頁容器和新的定價來源選擇，同時保留 fork 的歸檔功能。Go 編譯、面板 build、TypeScript 與 Bun tests 通過；Rust 全套 635/636 通過，僅已知 macOS symlink cleanup case 失敗。portable、`.app` 與 DMG 已完成；面板釘選改寫 v8 `management` 區塊，並確認設定 YAML 有效。
 8. **2026-10-01 upstream sync**：核心更新到 `97f244b8`（v8.0.7），面板更新到 `a7ec312`（v1.25.1），GUI 的 25 個 fork commits 無衝突 rebase 到 `90364e9`（upstream v0.3.12；fork HEAD `d3c5eca`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.6。修正歸檔接點以傳遞新版 `auth_dir_path_for_core` 的 `Result` 錯誤。Go 編譯、面板 build、TypeScript 與 Bun tests 通過；Rust 全套 678 通過、2 忽略，僅已知 macOS symlink cleanup case 失敗。本機未提交修改已保存並還原。
    portable、`.app` 與 `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg` 已用 Rust 1.90.0 完成建置，portable 內附 `CLIProxyAPI_8.0.6_darwin_aarch64.tar.gz`。
+9. **2026-10-07 upstream sync**：核心更新到 `57bde351`（v8.0.17），面板更新到 `6abace9`（v1.25.4），GUI 的 28 個 fork commits rebase 到 `aba62fa`（upstream v0.3.26；fork HEAD `8614143`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.16。事件列表衝突保留 upstream 的列高設定、匯出與日期顯示，以及 fork 歸檔入口與停用開關。Go 編譯、面板 build 與 TypeScript 通過；Bun 723 通過、32 跳過、3 失敗，三項失敗均在乾淨 upstream 重現。修正三個非時間淘汰測試的 fixture 過期問題後，Rust 747 通過、6 忽略、2 失敗，僅剩本機 `agy` 路徑及已知 macOS symlink cleanup 問題；22 個歸檔測試全部通過。
+   portable、`.app` 與 `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg` 已用 Rust 1.90.0、Bun 1.3.14 完成建置。分開驗證後以 `--no-verify` 打包，未擴大測試容許清單；未推送遠端或安裝到 `/Applications`。
+10. **2026-10-15 upstream sync**：核心 fast-forward 到 `5fc580b1`（v8.0.29），面板到 `13f94b4`（v1.26.4），28 個 fork commits rebase 到 `d64dda6`（upstream v0.3.38；fork HEAD `7216771`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.29。保留 upstream 新增的錯誤展開列、複製動作和側欄版面，以及 fork 歸檔入口、停用開關和產品名稱翻譯。歸檔危險按鈕 hover 背景改用既有 `--danger-color`，通過新版主題檢查。
+    Go 編譯、面板 build、TypeScript 通過；Bun 827 通過、32 跳過，唯一失敗為乾淨 upstream 也能重現的 Copilot 狀態文字本地化檢查。Rust 881 通過、8 忽略，僅本機 `agy` 路徑和既有 macOS symlink cleanup 兩項失敗，相關原碼與 upstream 相同。分開驗證後以 `--no-verify` 建置，未擴大測試容許清單。
+    Rust 1.90.0、Bun 1.3.14 完成 arm64 portable、`.app` 與 `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg`；`hdiutil verify` 通過，portable 內附核心 8.0.29 archive。既有未提交修改已還原，回復分支與 stash 保留。面板僅本機建置，未修改執行中 profile；未推送、啟動真實 profile 或安裝到 `/Applications`。
+11. **2026-10-20 upstream sync**：核心 fast-forward 到 `3f0cef01`（`v8.0.35-3-g3f0cef01`），面板到 `fe29633`（v1.26.5），28 個 fork commits rebase 到 `aee871a`（upstream v0.3.47；fork HEAD `2b65086`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.34。保留新版共用 UsageRecord、Select 與原生視窗 decorations；歸檔的 `request_id` 接到 `src/services/usage.ts`。歸檔介面改用 upstream 的 Dialog、Switch、Tabs、surface 與按鈕樣式，補齊空歸檔 browser mock 和狀態隔離測試，未擴大測試容許清單。
+    Go 編譯、GUI 與面板 production build 通過。Bun 1.3.14：面板 1635 通過；GUI 926 通過、32 跳過、4 失敗，均在乾淨 upstream 重現，分別是 Copilot 本地化、兩項 quota priority 斷言與 WindowFrame alert role 檢查。Rust 1.90.0：949 通過、9 忽略，僅已知 macOS symlink cleanup 失敗。歸檔與共用元件 50 項整合測試通過。Firefox MCP 啟動退出，Vite preview 未就緒，未完成瀏覽器互動驗證。既有未提交修改已還原，回復分支與 stash 保留。
+    後續依使用者要求，以 Rust 1.90.0、Bun 1.3.14 建置 arm64 `.app` 與 `EasyCLIProxyAPI-fork_0.3.6_upstream-0.3.47_20261020_aarch64.dmg`。Tauri 只留下 linker signature，因此補上 ad-hoc bundle 簽章並重新製作 DMG；嚴格 codesign 檢查、`hdiutil verify` 及掛載後 App 逐檔比對均通過。未使用 Apple Developer 簽章或公證，未重建 portable bundle。
 
 ---
 
@@ -99,11 +107,11 @@ Done.
 | --- | --- |
 | Upstream | `router-for-me/EasyCLIProxyAPI`（目前就是 `origin`） |
 | 工作分支 | `feature/request-archive` |
-| Fork 基底 | `90364e9` — `Upgrade CPA core to v8.0.6`（upstream v0.3.12） |
+| Fork 基底 | `aee871a`，`Add v0.3.47 release note`，upstream v0.3.47 |
 | GUI 版本 | `src-tauri/Cargo.toml` = `0.3.6` |
 | Git 身分（repo local） | `fun-ed <git-ed@runbox.no>` |
-| 同步的核心 checkout | `CLIProxyAPI` = `97f244b8`（v8.0.7） |
-| 核心版本綁定 | `core-version.txt` = `8.0.6` |
+| 同步的核心 checkout | `CLIProxyAPI` = `3f0cef01`（`v8.0.35-3-g3f0cef01`） |
+| 核心版本綁定 | `core-version.txt` = `8.0.34` |
 | 資料目錄 | `~/Library/Application Support/com.cpa.gui`（**與官方版共用**） |
 
 ### Fork commit 清單
@@ -209,12 +217,12 @@ rebase 出現衝突時，照這張表判斷該保留什麼。
 | `setup` 內 spawn 區 | `spawn_blocking` 呼叫 `start_request_archive_ingester` | 放在 `start_usage_collector` 之後 |
 | `generate_handler![]` | 7 個 `request_archive::*` 命令 | **最容易衝突**。兩邊的命令都要保留，一個都不能掉 |
 
-### 3.2 `src/pages/UsageRecordsPage.tsx`（6 處，25 行）
+### 3.2 Usage UI（`UsageRecordsPage.tsx`、`UsageEventsView.tsx`、`services/usage.ts`）
 
 | 位置 | 內容 | 衝突處理 |
 | --- | --- | --- |
 | import 區 | `import { RequestArchiveDetailDialog, RequestArchiveSettingsCard, useRequestArchiveAvailable } from './RequestArchivePanel';` | 加回去 |
-| `type UsageRecord` | 新增 `request_id: string;` | **必須保留**，沒有它整個詳情入口失效 |
+| `src/services/usage.ts` 的 `UsageRecord` | 新增 `request_id: string;` | **必須保留**；`UsageEventsView.tsx` 從服務匯入此型別 |
 | `data-management` 分頁 | `<UsageDataManagementView />` 外包一層 fragment，後面接 `<RequestArchiveSettingsCard />` | 若 upstream 重構分頁，把卡片掛回資料管理分頁即可 |
 | `EventsView` state | `const [archiveRequestId, setArchiveRequestId] = useState('');` 與其下一行的 `const archiveAvailable = useRequestArchiveAvailable() !== false;` | 兩行都要加回去 |
 | 事件表 `<tr>` | `className` / `title` / `onClick` 三個 prop，都以 `archiveAvailable &&` 起頭 | **若 upstream 重構表格，這三個 prop 要重新掛回 `<tr>`** |

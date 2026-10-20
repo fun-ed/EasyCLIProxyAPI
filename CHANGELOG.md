@@ -3,6 +3,47 @@
 This file records fork-specific behavior changes and regressions. Upstream
 release notes remain in the upstream repository history.
 
+## 2026-10-20
+
+### Changed
+
+- Rebased all 28 fork commits onto upstream `aee871a`, tagged `v0.3.47`, producing fork HEAD `2b65086`. Fast-forwarded the pristine core to `3f0cef01` (`v8.0.35-3-g3f0cef01`) and the management panel to `fe29633` (`v1.26.5`). GUI Cargo version remains `0.3.6`; the bundled core pin is `8.0.34`.
+- Preserved upstream's shared usage types, Select import, and native window decorations. Moved the archive's `request_id` field into `src/services/usage.ts`. Restored all four pre-existing modified files and retained the recovery branch and stash.
+- Go compilation and both frontend production builds passed. With Bun 1.3.14, panel tests passed all 1,635 cases; GUI tests passed 926, skipped 32, and failed 4. All four failures reproduced in a clean upstream snapshot: Copilot localization, two quota-priority assertions, and the WindowFrame alert-role check. Rust 1.90.0 tests passed 949, ignored 9, and failed only the documented macOS symlink cleanup test. No test allowlists changed.
+- The initial sync stopped before packaging. Follow-up release packaging produced the arm64 `.app` and `EasyCLIProxyAPI-fork_0.3.6_upstream-0.3.47_20261020_aarch64.dmg` with Rust 1.90.0 and Bun 1.3.14. The App was ad-hoc signed after Tauri left only a linker signature; strict codesign verification, DMG checksum verification, and a mounted-DMG comparison against the built App passed. This is not an Apple-notarized release. No new portable bundle was produced.
+- Browser verification was unavailable because Firefox MCP exited during startup and the Vite preview did not become ready. The 50 focused archive and shared-control integration tests passed.
+
+### Fixed
+
+- Adapted the archive UI to upstream's shared Dialog, Switch, Tabs, surface, and button contracts. Removed superseded private control styling, routed core operations through services, and added isolated empty-archive browser mock state with regression coverage.
+
+## 2026-10-15
+
+### Changed
+
+- Rebased all 28 fork commits onto upstream `d64dda6`, tagged `v0.3.38`, producing fork HEAD `7216771`. Fast-forwarded the pristine core to `5fc580b1`, tagged `v8.0.29`, and the management panel to `13f94b4`, tagged `v1.26.4`. GUI Cargo version remains `0.3.6`; the bundled core pin is `8.0.29`.
+- Kept upstream's expandable error rows, error-copy action, and sidebar layout while retaining the fork's archive-detail action, kill switch, and translated product name. Restored the pre-existing local documentation and archive test fixture changes; kept the recovery branch and stash.
+- Go compilation, panel build, and TypeScript checking passed. Bun tests passed 827 cases, skipped 32, and failed only the Copilot status localization check, which also failed in a clean upstream snapshot. Rust tests passed 881 cases, ignored 8, and failed only the previously recorded local `agy` path and macOS symlink cleanup cases. Their source files are unchanged from upstream. The test failure allowlist was not expanded.
+- Built the arm64 portable binary, `.app`, and `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg` with Rust 1.90.0 and Bun 1.3.14 after separate verification. `hdiutil verify` passed; the portable core archive is `CLIProxyAPI_8.0.29_darwin_aarch64.tar.gz`. No remote push, app launch with the real profile, or `/Applications` installation was performed.
+- Built the management panel locally without installing it into the running profile or changing its configuration.
+
+### Fixed
+
+- Changed the archive danger-button hover background to the existing `--danger-color` role so it passes upstream's new theme-background check.
+
+## 2026-10-07
+
+### Changed
+
+- Rebased 28 fork commits onto upstream `aba62fa`, tagged `v0.3.26`. Fast-forwarded the pristine core to `57bde351`, tagged `v8.0.17`, and the management panel to `6abace9`, tagged `v1.25.4`. GUI Cargo version remains `0.3.6`; the bundled core pin is `8.0.16`.
+- Resolved event-list conflicts without dropping upstream row-height settings, export controls, or date grouping. Retained the fork's archive-detail action and `CPA_FORK_ARCHIVE` gate.
+- Go compilation, panel build and installation, and TypeScript checking passed. Bun tests passed 723 cases, skipped 32, and failed 3; all three failures reproduced in a clean upstream worktree. Rust tests passed 747 cases, ignored 6, and failed 2 due to the local `agy` path and the documented macOS symlink cleanup case. All 22 archive tests passed after the fixture correction below.
+- Built the portable binary, `.app`, and `EasyCLIProxyAPI-fork_0.3.6_aarch64.dmg` with Rust 1.90.0 and Bun 1.3.14. Packaging used `--no-verify` after separate verification; the script's failure allowlist remains unchanged. No remote push or `/Applications` installation was performed.
+
+### Fixed
+
+- Disabled age-based retention in three archive tests that exercise scanning or size limits. Their fixed September 6 transcripts had exceeded the default 30-day retention window. The dedicated age-retention test still checks expiration.
+
 ## 2026-10-01
 
 ### Changed
