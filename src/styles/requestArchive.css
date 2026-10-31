@@ -5,6 +5,7 @@
  * palettes defined in styles.css apply without a second set of overrides.
  */
 
+@layer components {
 .usage-event-row-openable {
   cursor: pointer;
 }
@@ -20,9 +21,9 @@
 
 
 .usage-archive-alert {
-  border: 1px solid var(--theme-9f2d20);
-  border-radius: 10px;
-  color: var(--theme-9f2d20);
+  border: 1px solid var(--danger-color);
+  border-radius: var(--radius-md);
+  color: var(--danger-color);
   font-size: 13px;
   line-height: 1.6;
   margin: 12px 0 0;
@@ -44,16 +45,16 @@
 }
 
 .usage-archive-fields label > span {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   font-size: 12px;
   line-height: 1.4;
 }
 
 .usage-archive-fields input {
-  border: 1px solid var(--theme-d5d2cb);
-  border-radius: 8px;
-  background: var(--theme-fffdf8);
-  color: var(--theme-2d2a26);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 14px;
   padding: 8px 10px;
   width: 100%;
@@ -71,9 +72,9 @@
 }
 
 .usage-archive-stats > div {
-  border: 1px solid var(--theme-e3e1db);
-  border-radius: 10px;
-  background: var(--theme-faf9f5);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -82,12 +83,12 @@
 }
 
 .usage-archive-stats dt {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
 .usage-archive-stats dd {
-  color: var(--theme-2d2a26);
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
   margin: 0;
@@ -110,13 +111,13 @@
 }
 
 .usage-archive-paths span {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   flex: none;
   font-size: 12px;
 }
 
 .usage-archive-paths code {
-  color: var(--theme-5f5a53);
+  color: var(--text-secondary);
   font-size: 12px;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -168,7 +169,7 @@
 
 
 .usage-archive-meta {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   display: flex;
   flex: none;
   flex-wrap: wrap;
@@ -182,14 +183,14 @@
 }
 
 .usage-archive-truncated {
-  border: 1px solid var(--theme-9f2d20);
-  border-radius: 999px;
-  color: var(--theme-9f2d20);
+  border: 1px solid var(--danger-color);
+  border-radius: var(--radius-full);
+  color: var(--danger-color);
   padding: 1px 9px;
 }
 
 .usage-archive-tabs {
-  border-bottom: 1px solid var(--theme-e3e1db);
+  border-bottom: 1px solid var(--border-secondary);
   display: flex;
   flex: none;
   flex-wrap: wrap;
@@ -209,13 +210,13 @@
 }
 
 .usage-archive-placeholder {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   font-size: 13px;
   margin: 0;
 }
 
 .usage-archive-subhead {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -224,7 +225,7 @@
 }
 
 .usage-archive-toolnames {
-  color: var(--theme-5f5a53);
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.6;
   margin: 0;
@@ -236,10 +237,10 @@
  * the scrolling, which is what kept long prompts from being readable before.
  */
 .usage-archive-content {
-  border: 1px solid var(--theme-e3e1db);
-  border-radius: 9px;
-  background: var(--theme-faf9f5);
-  color: var(--theme-2d2a26);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   font-size: 12px;
   line-height: 1.65;
@@ -275,9 +276,9 @@
 }
 
 .usage-archive-role {
-  border: 1px solid var(--theme-d5d2cb);
-  border-radius: 999px;
-  color: var(--theme-5f5a53);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -286,17 +287,18 @@
 }
 
 .usage-archive-tools {
-  color: var(--theme-7a746c);
+  color: var(--text-tertiary);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .usage-archive-notice {
-  border: 1px solid var(--theme-2f6b3f);
-  border-radius: 10px;
-  color: var(--theme-2f6b3f);
+  border: 1px solid var(--success-color);
+  border-radius: var(--radius-md);
+  color: var(--success-color);
   font-size: 13px;
   line-height: 1.6;
   margin: 12px 0 0;
   padding: 11px 14px;
+}
 }

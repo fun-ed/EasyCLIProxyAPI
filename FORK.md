@@ -101,6 +101,9 @@ Done.
     歸檔適配與維護紀錄已提交為 `193bd8b`，Release [fork-v0.3.47-20261020](https://github.com/fun-ed/EasyCLIProxyAPI/releases/tag/fork-v0.3.47-20261020) 的 tag 指向該原始碼提交；重新下載 DMG 後 SHA-256 通過。使用者明確核准後，先保存遠端 `backup/pre-sync-20261020-6375f31`，再以精確舊 SHA 的 `--force-with-lease` 推送。本機 `backup/pre-sync-20261020-7216771` 與具名 stash 仍保留。
     新 App 已安裝至 `/Applications/EasyCLIProxyAPI-fork.app`，舊 App 備份為 `EasyCLIProxyAPI-fork.backup-20261020-163812.app`；安裝檔與簽章後建置產物一致。重新啟動後 App 與既有核心持續執行，核心 HTTP 200，版本標頭為 8.0.35。此 DMG 只含 GUI，沒有離線核心 archive；source pin 8.0.34 不等於 profile 中實際執行版本。多份舊核心 archive 的離線選版警告不影響本次既有核心啟動，未清理使用者 archive 或資料庫。
     Serena 續接記憶位於 `core`、`easycliproxyapi/core`、`easycliproxyapi/release-workflow`；篩選來源為 KB-relative `projects/cliproxy-api/session-notes/2026-10-20-sync-release-install-serena.md`，雙記憶儲存的完成狀態與來源雜湊以同名 `.receipts.json` 為準。KB 與工作區 Serena 目錄不屬於此 GUI Git repo，不作為 App 資產提交。
+12. **2026-10-31 upstream sync**：核心 fast-forward 到 `dbb70621`（v8.0.48），面板到 `4e4aeff`（v1.27.0），30 個 fork commits rebase 到 `64677d4`（upstream v0.3.60；fork HEAD `3b27c43`）。GUI Cargo 版本仍為 0.3.6，bundle 核心版本為 8.0.48。三個 locale 匯入衝突保留 upstream 的主題翻譯與 fork 的歸檔翻譯。歸檔 CSS 改用新版語意色彩、圓角 token 與 `components` layer，未改動共用主題或測試容許清單。
+    Go 編譯與 logging tests、面板 production build、TypeScript 通過。面板 Bun 1868 通過；GUI Bun 1069 通過、32 跳過、8 失敗，八項均在乾淨 upstream 重現，涵蓋共用 CSS `!important`、按鈕類別、Copilot 本地化、quota priority、Notice role 與英文主題名稱。分開驗證後使用 `--no-verify` 接續打包。三個 repo 的回復分支為 `backup/pre-sync-20261031-221743`；面板與設定先以同時間戳備份，面板已更新至真實 profile，設定原已釘選而未改寫。未推送遠端或重啟執行中的 App。
+    Rust 995 通過、10 忽略，唯一失敗為既有 macOS symlink cleanup，該測試原碼與 upstream 相同。Rust 1.90.0、Bun 1.3.14 完成 arm64 portable、`.app` 與 DMG；portable 內附核心 8.0.48 archive。Tauri 原始 bundle 未通過嚴格簽章檢查，因此補上 ad-hoc 簽章並重新產生 `EasyCLIProxyAPI-fork_0.3.6_upstream-0.3.60_20261031_aarch64.dmg`，請使用此檔而非原始同版本 DMG。`codesign --verify --deep --strict`、`hdiutil verify` 與掛載後 App 逐檔比對通過。未使用 Apple Developer 簽章或公證，未安裝至 `/Applications`，未執行真實 profile 的 UI 或請求驗證。歸檔 CSS 適配及本次紀錄保留為未提交修改。
 
 ---
 
@@ -110,11 +113,11 @@ Done.
 | --- | --- |
 | Upstream | `router-for-me/EasyCLIProxyAPI`（目前就是 `origin`） |
 | 工作分支 | `feature/request-archive` |
-| Fork 基底 | `aee871a`，`Add v0.3.47 release note`，upstream v0.3.47 |
+| Fork 基底 | `64677d4`，`Add v0.3.60 release note`，upstream v0.3.60 |
 | GUI 版本 | `src-tauri/Cargo.toml` = `0.3.6` |
 | Git 身分（repo local） | `fun-ed <git-ed@runbox.no>` |
-| 同步的核心 checkout | `CLIProxyAPI` = `3f0cef01`（`v8.0.35-3-g3f0cef01`） |
-| 核心版本綁定 | `core-version.txt` = `8.0.34` |
+| 同步的核心 checkout | `CLIProxyAPI` = `dbb70621`（v8.0.48） |
+| 核心版本綁定 | `core-version.txt` = `8.0.48` |
 | 資料目錄 | `~/Library/Application Support/com.cpa.gui`（**與官方版共用**） |
 
 ### Fork commit 清單

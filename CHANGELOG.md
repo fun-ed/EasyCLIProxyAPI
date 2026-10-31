@@ -3,6 +3,19 @@
 This file records fork-specific behavior changes and regressions. Upstream
 release notes remain in the upstream repository history.
 
+## 2026-10-31
+
+### Changed
+
+- Rebased all 30 fork commits onto upstream `64677d4` (`v0.3.60`). The pristine core is `dbb70621` (`v8.0.48`), and the management panel is `4e4aeff` (`v1.27.0`). GUI Cargo version remains `0.3.6`; the source core pin is `8.0.48`.
+- Built the arm64 portable binary, App, and DMG with Rust 1.90.0 and Bun 1.3.14. The portable directory includes the core 8.0.48 archive. Use `EasyCLIProxyAPI-fork_0.3.6_upstream-0.3.60_20261031_aarch64.dmg`, rebuilt after applying an ad-hoc App signature. Strict codesign verification, DMG checksum verification, and a mounted-App comparison passed. The App is not Apple-notarized.
+- Go compilation, logging tests, TypeScript, and production builds passed. Panel tests passed 1,868 cases. GUI Bun tests passed 1,069, skipped 32, and failed 8; all failures reproduced in clean upstream. Rust tests passed 995, ignored 10, and failed only the known macOS symlink cleanup case. Test allowlists remain unchanged.
+- Updated the management panel in the existing profile after backing up the panel and configuration. No App installation, restart, or live-profile UI/request verification was performed.
+
+### Fixed
+
+- Preserved both upstream theme translations and fork archive translations during rebase. Migrated archive styling to shared semantic color and radius tokens in the `components` CSS layer.
+
 ## 2026-10-20
 
 ### Changed
